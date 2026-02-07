@@ -1,50 +1,33 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Homelab Vibe Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Easy/Automated End-User Experience
+Systems MUST be designed for minimal manual intervention, favoring automation. User interfaces (if any) MUST be intuitive and require minimal training. Documentation MUST enable self-service.
+Rationale: To maximize adoption and reduce operational overhead, ensuring users can quickly and efficiently achieve their goals.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Production Quality
+All deployed components MUST meet defined quality standards, including reliability and performance. Monitoring and alerting are very important.
+Rationale: To deliver stable, performant, and reliable services that meet user expectations and minimize business impact from failures.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Scalability
+Systems MUST be designed to handle anticipated growth in user load and data volume without significant architectural changes. Solutions SHOULD leverage cloud-native patterns or horizontally scalable designs where appropriate.
+Rationale: To ensure the platform can accommodate future demand and maintain performance as the user base and data grow.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Defense-in-Depth Security
+Security MUST be considered at every layer of the architecture, from network to application to data. Least privilege MUST be enforced. Regular security assessments (e.g., vulnerability scans, penetration tests) MUST be conducted.
+Rationale: To protect sensitive data and infrastructure from threats by implementing multiple layers of security controls.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+## Operational Guidelines
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+All deployments MUST follow a documented process. Incident response plans MUST be in place and regularly tested.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+## Development Standards
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+Code MUST adhere to established style guides. All changes MUST undergo peer review. Automated CI/CD pipelines SHOULD be used for building, testing, and deploying.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This Constitution MUST be reviewed annually. Amendments require consensus from project leads and documented rationale. All new features and significant changes MUST demonstrate compliance with these principles.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 0.1.0 | **Ratified**: 2026-02-07 | **Last Amended**: 2026-02-07
