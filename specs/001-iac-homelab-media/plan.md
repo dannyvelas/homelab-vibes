@@ -57,7 +57,7 @@ tests/
 └── unit/                # Unit tests for IaC (Terraform, Ansible)
 ```
 
-**Structure Decision**: A single project IaC repository structure. Terraform will handle provisioning the initial OS-booted state and managing virtual machines (VMs) if the chosen hypervisor supports it. Ansible will handle hypervisor configuration, VM OS installation, hardening, Tailscale, and media stack application deployment within VMs. Custom Go scripts may be used for glue logic or specific automation tasks.
+**Structure Decision**: A single project IaC repository structure. Terraform will handle provisioning the initial OS-booted state and managing virtual machines (VMs) if the chosen hypervisor supports it. Ansible will handle hypervisor configuration, VM creation (1-2 VMs per host), VM OS hardening, Tailscale deployment, Docker/Docker Compose installation within VMs, and media stack application deployment as containers inside VMs. Application-to-VM assignment is statically defined in Ansible inventory/group vars. Custom Go scripts may be used for glue logic or specific automation tasks.
 
 ## Complexity Tracking
 
@@ -83,10 +83,12 @@ tests/
     -   Investigate secure methods for Tailscale key management within the IaC framework.
 
 4.  **Hypervisor and Media Stack Isolation**:
-    -   Research lightweight hypervisor technologies suitable for Debian on limited hardware (e.g., KVM/libvirt, LXC containers if full VM isolation is too resource-intensive, or another minimalist hypervisor, explicitly excluding Proxmox per user request).
-    -   Determine best practices for deploying multiple Debian VMs on a single physical host.
+    -   Research lightweight hypervisor technologies suitable for Debian on limited hardware (KVM/libvirt preferred, explicitly excluding Proxmox per user request).
+    -   Determine resource-efficient VM layout: 1-2 VMs per physical host to minimize overhead on 8GB RAM / dual-core hardware.
+    -   Investigate Docker/Docker Compose deployment within VMs for running multiple media applications per VM.
+    -   Define static application-to-VM assignment strategy via Ansible inventory/group vars.
     -   Investigate automated VM creation and management using Terraform and Ansible.
-    -   Research optimal configurations for media storage within a VM-based deployment.
+    -   Research optimal configurations for media storage passthrough from host to VM to containers.
 
 5.  **Custom Logic Language Integration**:
     -   If custom scripting is required for orchestration or specific tasks, establish best practices for writing maintainable Go applications within the IaC repository.

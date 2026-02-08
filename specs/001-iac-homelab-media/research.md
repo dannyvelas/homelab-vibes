@@ -31,9 +31,9 @@
 
 ### 4. Media Stack Deployment and Isolation
 
--   **Decision**: Plex, Sonarr, Radarr, and Bazarr will be deployed within separate Virtual Machines (VMs) using a lightweight hypervisor. Each application (or a small group of tightly coupled applications) will reside in its own VM to provide strong kernel-level isolation, mitigating the risk of application vulnerabilities escalating to the host kernel or other VMs. Ansible will be used to manage VM creation (if hypervisor supports it), OS installation within VMs, and application deployment within each VM.
--   **Rationale**: Addresses the user's critical defense-in-depth concern regarding potential kernel exploits in Docker containers. VMs offer superior isolation by providing a dedicated kernel for each application, aligning strongly with the "Defense-in-Depth Security" principle and increasing overall system resilience.
--   **Alternatives Considered**: Docker containers (original decision, but rejected due to kernel isolation concerns); Native package installation (less isolated, dependency conflicts).
+-   **Decision**: A small number of VMs (1-2 per physical host) will be provisioned using a lightweight hypervisor (KVM/libvirt). Media applications (Plex, Sonarr, Radarr, Bazarr) will run as Docker containers inside these VMs, managed via Docker Compose. Application-to-VM assignment is statically defined in Ansible inventory/group vars -- no runtime scheduler is needed at this scale. Ansible will manage VM creation, VM OS hardening, Docker installation, and Docker Compose deployments within each VM.
+-   **Rationale**: The original one-VM-per-app approach is not viable on the target hardware (8GB RAM, dual-core i7, 128-256GB storage). Each VM incurs ~512MB-1GB of overhead for its kernel and base OS services; four or more VMs would consume most available RAM before any applications run, and CPU context-switching across many VMs on a dual-core would degrade performance. The revised approach preserves the key defense-in-depth benefit -- applications are isolated from the host kernel by the VM boundary -- while keeping resource usage practical. Docker Compose inside VMs provides easy application lifecycle management (start, stop, update, rollback). When migrating to beefier bare-metal hardware, the architecture scales naturally: add more VMs or redistribute containers by updating Ansible inventory, with no structural changes required.
+-   **Alternatives Considered**: One VM per application (not viable on constrained hardware -- excessive RAM/CPU/storage overhead); Docker containers directly on the host (no VM-level kernel isolation); Native package installation (less isolated, dependency conflicts); Runtime container scheduler/orchestrator (over-engineering for 2 hosts and ~4 applications -- Kubernetes/Nomad patterns are appropriate at larger scale).
 
 ### 5. Custom Logic Language Integration
 
@@ -46,5 +46,5 @@
 -   **OS**: Debian
 -   **IaC Tools**: Terraform (provisioning), Ansible (configuration/deployment)
 -   **VPN**: Tailscale
--   **Media Stack Deployment**: Virtual Machines (VMs)
+-   **Media Stack Deployment**: Docker containers inside VMs (1-2 VMs per host, static assignment via Ansible)
 -   **Custom Scripting**: Go
