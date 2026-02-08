@@ -22,9 +22,9 @@ An engineer from the team, working remotely, needs to access resources located w
 
 ---
 
-### User Story 2 - Engineer Deploys Media Stack (Plex, Sonarr, Radarr, Bazarr) with Single Command (Priority: P1)
+### User Story 2 - Engineer Deploys Media Stack Applications (Plex, Sonarr, Radarr, Bazarr) with Individual Commands (Priority: P1)
 
-An engineer on the team can execute a single, automated command or API request that deploys and configures the Plex, Sonarr, Radarr, and Bazarr applications onto the designated servers. Upon successful deployment, these applications are accessible within the home LAN.
+An engineer on the team can execute individual, automated commands or API requests for each media application (Plex, Sonarr, Radarr, and Bazarr) to deploy and configure them onto the designated servers. Upon successful deployment, these applications are accessible within the home LAN.
 
 **Why this priority**: This fulfills a core functional requirement of the project, providing immediate value by setting up key applications. It demonstrates the effectiveness of the IaC approach for application deployment.
 
@@ -96,8 +96,8 @@ The entire infrastructure, including the host OS, network, and deployed applicat
 
 ### Measurable Outcomes
 
-- **SC-001**: An engineer can fully provision the base server setup (including VPN) from scratch on a new bare-metal server using a single command/API request within X minutes (Target TBD, e.g., 30 minutes).
-- **SC-002**: An engineer can fully deploy the media stack (Plex, Sonarr, Radarr, Bazarr) from scratch using a single command/API request within Y minutes (Target TBD, e.g., 15 minutes) on a provisioned server.
+- **SC-001**: An engineer can fully provision the base server setup (including VPN) from scratch on a new bare-metal server using a single command/API request within 5 minutes.
+- **SC-002**: An engineer can fully deploy the media stack (Plex, Sonarr, Radarr, Bazarr) from scratch using individual commands/API requests for each application within 5 minutes on a provisioned server.
 - **SC-003**: Remote users can successfully connect to the VPN and access internal home LAN resources with 100% reliability over a 24-hour test period.
 - **SC-004**: A security scan (e.g., Nessus, OpenVAS) reports zero critical or high-severity vulnerabilities directly attributable to misconfigurations or lack of isolation in the deployed infrastructure or applications.
 - **SC-005**: All deployed applications run within isolated environments (e.g., containers, VMs) with restricted network access, achieving a minimal attack surface.
