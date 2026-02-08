@@ -57,7 +57,7 @@ tests/
 └── unit/                # Unit tests for IaC (Terraform, Ansible)
 ```
 
-**Structure Decision**: A single project IaC repository structure. Terraform will handle provisioning the initial OS-booted state. Ansible will handle configuration, hardening, Tailscale, and media stack deployment. Custom Go scripts may be used for glue logic or specific automation tasks.
+**Structure Decision**: A single project IaC repository structure. Terraform will handle provisioning the initial OS-booted state and managing virtual machines (VMs) if the chosen hypervisor supports it. Ansible will handle hypervisor configuration, VM OS installation, hardening, Tailscale, and media stack application deployment within VMs. Custom Go scripts may be used for glue logic or specific automation tasks.
 
 ## Complexity Tracking
 
@@ -82,10 +82,11 @@ tests/
     -   Research automated deployment of Tailscale via Ansible/Terraform, including node authentication and subnets.
     -   Investigate secure methods for Tailscale key management within the IaC framework.
 
-4.  **Media Stack Deployment and Isolation**:
-    -   Research best practices for deploying Plex, Sonarr, Radarr, Bazarr on Debian.
-    -   Evaluate containerization (Docker/Podman) for application isolation and resource management on low-resource hardware, addressing security concerns.
-    -   Determine optimal configurations for media storage.
+4.  **Hypervisor and Media Stack Isolation**:
+    -   Research lightweight hypervisor technologies suitable for Debian on limited hardware (e.g., KVM/libvirt, LXC containers if full VM isolation is too resource-intensive, or another minimalist hypervisor, explicitly excluding Proxmox per user request).
+    -   Determine best practices for deploying multiple Debian VMs on a single physical host.
+    -   Investigate automated VM creation and management using Terraform and Ansible.
+    -   Research optimal configurations for media storage within a VM-based deployment.
 
 5.  **Custom Logic Language Integration**:
     -   If custom scripting is required for orchestration or specific tasks, establish best practices for writing maintainable Go applications within the IaC repository.

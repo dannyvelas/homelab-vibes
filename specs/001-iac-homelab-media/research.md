@@ -31,9 +31,9 @@
 
 ### 4. Media Stack Deployment and Isolation
 
--   **Decision**: Plex, Sonarr, Radarr, and Bazarr will be deployed within Docker containers, managed and orchestrated using Docker Compose. Ansible will be responsible for installing Docker, Docker Compose, and deploying the application stacks defined by Compose files. Application data will be mapped to host volumes for persistence.
--   **Rationale**: Containerization provides application isolation, simplifies dependency management, and enhances portability, aligning with "Production Quality" and "Defense-in-Depth Security" (by reducing the attack surface and containing potential compromises). Docker Compose simplifies multi-container application management.
--   **Alternatives Considered**: Native package installation (less isolated, potential for dependency conflicts, harder to manage); Kubernetes (overkill for initial homelab setup, higher resource overhead on limited hardware).
+-   **Decision**: Plex, Sonarr, Radarr, and Bazarr will be deployed within separate Virtual Machines (VMs) using a lightweight hypervisor. Each application (or a small group of tightly coupled applications) will reside in its own VM to provide strong kernel-level isolation, mitigating the risk of application vulnerabilities escalating to the host kernel or other VMs. Ansible will be used to manage VM creation (if hypervisor supports it), OS installation within VMs, and application deployment within each VM.
+-   **Rationale**: Addresses the user's critical defense-in-depth concern regarding potential kernel exploits in Docker containers. VMs offer superior isolation by providing a dedicated kernel for each application, aligning strongly with the "Defense-in-Depth Security" principle and increasing overall system resilience.
+-   **Alternatives Considered**: Docker containers (original decision, but rejected due to kernel isolation concerns); Native package installation (less isolated, dependency conflicts).
 
 ### 5. Custom Logic Language Integration
 
@@ -46,5 +46,5 @@
 -   **OS**: Debian
 -   **IaC Tools**: Terraform (provisioning), Ansible (configuration/deployment)
 -   **VPN**: Tailscale
--   **Media Stack Deployment**: Docker Compose
+-   **Media Stack Deployment**: Virtual Machines (VMs)
 -   **Custom Scripting**: Go
