@@ -70,6 +70,7 @@ The entire infrastructure, including the host OS, network, and deployed applicat
 - **FR-002**: System MUST deploy and configure a VPN server on a designated server.
 - **FR-003**: System MUST enable remote users to connect securely to the home LAN via VPN clients.
 - **FR-004**: System MUST automate the deployment and configuration of Plex, Sonarr, Radarr, and Bazarr.
+- **FR-004a**: System MUST use a container scheduler to manage the placement and lifecycle of application workloads across available infrastructure, enabling automatic scaling as new hosts or VMs are added.
 - **FR-005**: Plex MUST be accessible within the home LAN at port 32400 after deployment.
 - **FR-006**: Sonarr, Radarr, and Bazarr MUST be accessible within the home LAN after deployment.
 - **FR-007**: System MUST implement defense-in-depth security measures to isolate applications and protect the host OS.
@@ -90,6 +91,7 @@ The entire infrastructure, including the host OS, network, and deployed applicat
 - **Home LAN Resource**: Any device or service within the home network.
 - **Engineer**: User responsible for setting up and deploying the infrastructure.
 - **Remote User**: User accessing LAN resources via VPN.
+- **Container Scheduler**: Software that manages which containers run on which hosts/VMs and handles their lifecycle (start, stop, restart, placement).
 - **IaC Configuration**: Code defining infrastructure and application deployments.
 
 ## Success Criteria *(mandatory)*
@@ -108,3 +110,4 @@ The entire infrastructure, including the host OS, network, and deployed applicat
 - The OS should be Debian, chosen for its stability, wide support, and suitability for resource-constrained environments.
 - The IaC tool should leverage both Ansible for configuration management and application deployment, and Terraform for infrastructure provisioning, providing a robust and flexible solution.
 - The VPN technology should be Tailscale, chosen for its simplicity, ease of use, and modern approach to secure network access.
+- The container scheduler should be HashiCorp Nomad, chosen for its lightweight resource footprint (~500-750MB RAM), native Docker driver, and ability to scale from 2 nodes to many without architectural changes. This is being built now on constrained hardware so the scheduling infrastructure is ready when the cluster grows.
