@@ -77,9 +77,9 @@ tests/
 2.  **Debian Server Hardening and Network Segmentation**:
     -   Research essential security configurations for Debian servers (firewall, SSH hardening, user management, update policies).
     -   Identify minimal Debian installation requirements for this use case.
-    -   Design VLAN segmentation: dedicated VLAN for user-facing application VMs, isolated from other LAN devices.
-    -   Research egress traffic control: firewall rules to block application VLAN from initiating outbound connections to other home network devices (lateral movement prevention).
-    -   Determine VLAN configuration approach via Ansible (host network interfaces, VM bridge configuration).
+    -   Design virtual bridge + NAT networking: Linux bridge on host with a private subnet (e.g., `192.168.122.0/24`) for VMs, distinct from the home LAN CIDR. Host acts as gateway/router.
+    -   Research iptables rules for ingress control (port forwarding from host to VM reverse proxy), egress blocking (deny VM-to-LAN by default, allow only internet/DNS/NTP), and lateral movement prevention.
+    -   Determine bridge and NAT configuration approach via Ansible (bridge setup, iptables rules, libvirt network definitions).
 
 3.  **Tailscale Deployment and Management**:
     -   Research automated deployment of Tailscale via Ansible/Terraform, including node authentication and subnets.
@@ -89,7 +89,7 @@ tests/
     -   Research lightweight hypervisor technologies suitable for Debian on limited hardware (KVM/libvirt preferred, explicitly excluding Proxmox per user request).
     -   Design two-layer architecture: trusted infrastructure (Nomad server/client, Tailscale) on host; user-facing apps as Docker containers inside 1 VM per host, scheduled by Nomad.
     -   Investigate Nomad deployment on Debian: server + client on host, client + Docker inside VM, Nomad targeting the VM's Docker daemon for workload scheduling.
-    -   Research Nomad job file structure for media applications (Plex, Sonarr, Radarr, Bazarr), including read-only container filesystem (`--read-only`) with explicit writable volume mounts for data directories only.
+    -   Research Nomad job file structure for media applications (Plex, Sonarr, Radarr, Bazarr), including read-only root filesystem (`--read-only`) with explicit writable volume mounts for required data directories (`/config`, `/downloads`, `/media`).
     -   Research reverse proxy deployment (Traefik or Caddy) as a Nomad-scheduled container inside the VM: TLS termination, rate limiting, single ingress point for all media services.
     -   Investigate automated VM creation and management using Terraform and Ansible.
     -   Research optimal configurations for media storage passthrough from host to VM to containers.
