@@ -9,7 +9,7 @@
 
 ### 1. IaC Strategy and Integration
 
--   **Decision**: Terraform will be used for initial server provisioning and management of infrastructure resources, while Ansible will be utilized for configuration management, OS hardening, and application deployment (including Docker/Docker Compose for the media stack).
+-   **Decision**: Terraform will be used for initial server provisioning and management of infrastructure resources, while Ansible will be utilized for configuration management, OS hardening, Nomad/Docker setup, and application deployment.
 -   **Rationale**: This combination leverages Terraform's strengths in declarative infrastructure state management and Ansible's powerful capabilities for idempotent software configuration and orchestration. It provides a robust, flexible, and well-supported IaC solution that aligns with the user's preference for these tools.
 -   **Alternatives Considered**: Pure Ansible (less suitable for initial bare-metal provisioning and state management); Pure Terraform (less suitable for intricate software configurations and application deployments); Custom scripting (higher initial development effort to match capabilities of established tools).
 
@@ -29,11 +29,15 @@
 -   **Rationale**: Tailscale was explicitly requested by the user, aligns with the "Easy/Automated End-User Experience" principle, and provides a modern, secure VPN solution. Ansible is well-suited for installing and managing Tailscale.
 -   **Alternatives Considered**: OpenVPN, WireGuard (rejected as Tailscale was preferred by the user for simplicity and ease of use).
 
-### 4. Media Stack Deployment and Isolation
+### 4. Media Stack Deployment, Isolation, and Scheduling
 
--   **Decision**: A small number of VMs (1-2 per physical host) will be provisioned using a lightweight hypervisor (KVM/libvirt). Media applications (Plex, Sonarr, Radarr, Bazarr) will run as Docker containers inside these VMs, managed via Docker Compose. Application-to-VM assignment is statically defined in Ansible inventory/group vars -- no runtime scheduler is needed at this scale. Ansible will manage VM creation, VM OS hardening, Docker installation, and Docker Compose deployments within each VM.
--   **Rationale**: The original one-VM-per-app approach is not viable on the target hardware (8GB RAM, dual-core i7, 128-256GB storage). Each VM incurs ~512MB-1GB of overhead for its kernel and base OS services; four or more VMs would consume most available RAM before any applications run, and CPU context-switching across many VMs on a dual-core would degrade performance. The revised approach preserves the key defense-in-depth benefit -- applications are isolated from the host kernel by the VM boundary -- while keeping resource usage practical. Docker Compose inside VMs provides easy application lifecycle management (start, stop, update, rollback). When migrating to beefier bare-metal hardware, the architecture scales naturally: add more VMs or redistribute containers by updating Ansible inventory, with no structural changes required.
--   **Alternatives Considered**: One VM per application (not viable on constrained hardware -- excessive RAM/CPU/storage overhead); Docker containers directly on the host (no VM-level kernel isolation); Native package installation (less isolated, dependency conflicts); Runtime container scheduler/orchestrator (over-engineering for 2 hosts and ~4 applications -- Kubernetes/Nomad patterns are appropriate at larger scale).
+-   **Decision**: Each physical host runs two layers:
+    1.  **Host layer**: Nomad agent (server + client), Tailscale, and system infrastructure run directly on the host OS. These are trusted, operator-controlled services with no user-facing attack surface.
+    2.  **VM layer**: One VM per host, provisioned via KVM/libvirt. The VM runs a Nomad client and Docker. All user-facing media applications (Plex, Sonarr, Radarr, Bazarr) run as Docker containers inside the VM, scheduled by Nomad. The VM provides kernel-level isolation between user-facing applications and the host.
+
+    Nomad handles container scheduling and placement across the cluster. On the current 2-host setup, Nomad targets the VM's Docker daemon to schedule media workloads. Application definitions are Nomad job files (HCL). Ansible manages host OS hardening, hypervisor setup, VM creation, VM OS hardening, Nomad installation (on both host and VM), and Docker installation within the VM.
+-   **Rationale**: This architecture balances defense-in-depth security with resource efficiency and future scalability. The VM boundary ensures that a container escape exploit (e.g., a zero-day in Plex) lands in the VM's kernel, not the host's -- an attacker would need a second exploit (VM escape) to reach the host, which is significantly harder. Running Nomad and Tailscale directly on the host avoids wasting VM overhead on trusted infrastructure. Nomad adds ~500-750MB RAM overhead, which is affordable on 8GB when only one VM is running. Critically, Nomad is being built now to support future scaling: when more hardware is available, additional VMs or physical nodes each run a Nomad client, and Nomad distributes workloads across them automatically. The Nomad job definitions remain unchanged -- only the cluster membership grows.
+-   **Alternatives Considered**: One VM per application (not viable on constrained hardware -- excessive RAM/CPU/storage overhead); Docker containers directly on host without VM (no kernel isolation -- unacceptable given threat model of malicious users and zero-day exploits in user-facing apps); Docker Compose without a scheduler (simpler but does not scale -- static assignment cannot automatically redistribute workloads as the cluster grows); Kubernetes/k3s (heavier than Nomad at ~750MB-1.5GB, more complex for this scale, though viable on future hardware); Native package installation (less isolated, dependency conflicts).
 
 ### 5. Custom Logic Language Integration
 
@@ -41,10 +45,17 @@
 -   **Rationale**: Go was one of the user's preferred languages, and its performance, static typing, and strong ecosystem for CLI tools and backend services make it a pragmatic choice for infrastructure automation within this context.
 -   **Alternatives Considered**: Nim, OCaml (also user preferences, but Go has more established libraries and community support in the infrastructure automation space).
 
+### 6. Container Scheduling
+
+-   **Decision**: HashiCorp Nomad will serve as the container scheduler/orchestrator.
+-   **Rationale**: Nomad is lightweight (~500-750MB RAM for server + client), has a native Docker task driver, mature Terraform and Ansible integration, and scales from 2 nodes to thousands without architectural changes. Its HCL-based job files are simpler than Kubernetes YAML manifests. Nomad is purpose-built for workload scheduling and avoids the operational complexity of a full Kubernetes deployment, making it ideal for a resource-constrained homelab that needs to scale later.
+-   **Alternatives Considered**: Kubernetes/k3s (heavier resource footprint, more operational complexity than warranted at this scale); Docker Compose with static assignment (simpler but does not scale -- no automatic workload distribution); Docker Swarm (essentially in maintenance mode, limited future investment); Custom Go scheduler (significant development effort to replicate what Nomad provides out of the box).
+
 ## Key Decisions Summary
 
 -   **OS**: Debian
 -   **IaC Tools**: Terraform (provisioning), Ansible (configuration/deployment)
--   **VPN**: Tailscale
--   **Media Stack Deployment**: Docker containers inside VMs (1-2 VMs per host, static assignment via Ansible)
+-   **VPN**: Tailscale (runs on host)
+-   **Container Scheduler**: Nomad (runs on host; client also runs inside VM)
+-   **Media Stack Deployment**: Docker containers inside VM, scheduled by Nomad (1 VM per host for user-facing workloads)
 -   **Custom Scripting**: Go

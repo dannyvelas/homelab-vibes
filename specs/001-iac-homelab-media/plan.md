@@ -10,7 +10,7 @@ This project aims to develop an Infrastructure as Code (IaC) solution for a home
 ## Technical Context
 
 **Language/Version**: Go (for custom scripting/logic within IaC if needed, per user preference for Go, Nim, OCaml)  
-**Primary Dependencies**: Ansible, Terraform, Tailscale  
+**Primary Dependencies**: Ansible, Terraform, Tailscale, Nomad
 **Storage**: Host-level storage for media applications (details to be determined)  
 **Testing**: Unit testing for IaC code (e.g., Terratest, Molecule), integration testing for deployed services  
 **Target Platform**: Debian servers (bare-metal, 8GB RAM, dual-core Intel i7, 128GB/256GB storage)  
@@ -57,7 +57,7 @@ tests/
 └── unit/                # Unit tests for IaC (Terraform, Ansible)
 ```
 
-**Structure Decision**: A single project IaC repository structure. Terraform will handle provisioning the initial OS-booted state and managing virtual machines (VMs) if the chosen hypervisor supports it. Ansible will handle hypervisor configuration, VM creation (1-2 VMs per host), VM OS hardening, Tailscale deployment, Docker/Docker Compose installation within VMs, and media stack application deployment as containers inside VMs. Application-to-VM assignment is statically defined in Ansible inventory/group vars. Custom Go scripts may be used for glue logic or specific automation tasks.
+**Structure Decision**: A single project IaC repository structure. Terraform will handle provisioning the initial OS-booted state and managing VMs via the chosen hypervisor. Ansible will handle host OS hardening, hypervisor setup, Nomad server/client installation on host, Tailscale deployment on host, VM creation (1 per host for user-facing workloads), VM OS hardening, Nomad client + Docker installation within VMs, and media stack deployment as Nomad-scheduled Docker containers inside VMs. Application definitions are Nomad job files (HCL). Custom Go scripts may be used for glue logic or specific automation tasks.
 
 ## Complexity Tracking
 
@@ -82,13 +82,14 @@ tests/
     -   Research automated deployment of Tailscale via Ansible/Terraform, including node authentication and subnets.
     -   Investigate secure methods for Tailscale key management within the IaC framework.
 
-4.  **Hypervisor and Media Stack Isolation**:
+4.  **Hypervisor, Media Stack Isolation, and Scheduling**:
     -   Research lightweight hypervisor technologies suitable for Debian on limited hardware (KVM/libvirt preferred, explicitly excluding Proxmox per user request).
-    -   Determine resource-efficient VM layout: 1-2 VMs per physical host to minimize overhead on 8GB RAM / dual-core hardware.
-    -   Investigate Docker/Docker Compose deployment within VMs for running multiple media applications per VM.
-    -   Define static application-to-VM assignment strategy via Ansible inventory/group vars.
+    -   Design two-layer architecture: trusted infrastructure (Nomad server/client, Tailscale) on host; user-facing apps as Docker containers inside 1 VM per host, scheduled by Nomad.
+    -   Investigate Nomad deployment on Debian: server + client on host, client + Docker inside VM, Nomad targeting the VM's Docker daemon for workload scheduling.
+    -   Research Nomad job file structure for media applications (Plex, Sonarr, Radarr, Bazarr).
     -   Investigate automated VM creation and management using Terraform and Ansible.
     -   Research optimal configurations for media storage passthrough from host to VM to containers.
+    -   Validate resource feasibility: Nomad (~500-750MB) + 1 VM (~512MB-1GB) + media apps (~2-3GB) on 8GB RAM hosts.
 
 5.  **Custom Logic Language Integration**:
     -   If custom scripting is required for orchestration or specific tasks, establish best practices for writing maintainable Go applications within the IaC repository.
