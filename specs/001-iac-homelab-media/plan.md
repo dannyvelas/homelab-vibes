@@ -74,9 +74,12 @@ tests/
     -   Determine how to manage state and secrets securely across both tools.
     -   Explore methods for creating a simple, single-command engineer experience using these tools.
 
-2.  **Debian Server Hardening**:
+2.  **Debian Server Hardening and Network Segmentation**:
     -   Research essential security configurations for Debian servers (firewall, SSH hardening, user management, update policies).
     -   Identify minimal Debian installation requirements for this use case.
+    -   Design VLAN segmentation: dedicated VLAN for user-facing application VMs, isolated from other LAN devices.
+    -   Research egress traffic control: firewall rules to block application VLAN from initiating outbound connections to other home network devices (lateral movement prevention).
+    -   Determine VLAN configuration approach via Ansible (host network interfaces, VM bridge configuration).
 
 3.  **Tailscale Deployment and Management**:
     -   Research automated deployment of Tailscale via Ansible/Terraform, including node authentication and subnets.
@@ -86,7 +89,8 @@ tests/
     -   Research lightweight hypervisor technologies suitable for Debian on limited hardware (KVM/libvirt preferred, explicitly excluding Proxmox per user request).
     -   Design two-layer architecture: trusted infrastructure (Nomad server/client, Tailscale) on host; user-facing apps as Docker containers inside 1 VM per host, scheduled by Nomad.
     -   Investigate Nomad deployment on Debian: server + client on host, client + Docker inside VM, Nomad targeting the VM's Docker daemon for workload scheduling.
-    -   Research Nomad job file structure for media applications (Plex, Sonarr, Radarr, Bazarr).
+    -   Research Nomad job file structure for media applications (Plex, Sonarr, Radarr, Bazarr), including read-only container filesystem (`--read-only`) with explicit writable volume mounts for data directories only.
+    -   Research reverse proxy deployment (Traefik or Caddy) as a Nomad-scheduled container inside the VM: TLS termination, rate limiting, single ingress point for all media services.
     -   Investigate automated VM creation and management using Terraform and Ansible.
     -   Research optimal configurations for media storage passthrough from host to VM to containers.
     -   Validate resource feasibility: Nomad (~500-750MB) + 1 VM (~512MB-1GB) + media apps (~2-3GB) on 8GB RAM hosts.
