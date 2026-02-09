@@ -5,7 +5,7 @@
 **Status**: Phase 1 Design
 **Input**: Functional Requirements from `/specs/001-iac-homelab-media/spec.md`, Research findings from `/specs/001-iac-homelab-media/research.md`
 
-This document defines the CLI contracts for interacting with the IaC system. The primary interface is command-line driven, wrapping Terraform, Ansible, and Nomad operations behind simplified commands. Custom Go scripts may provide the wrapper layer for enhanced UX and error handling.
+This document defines the CLI contracts for interacting with the IaC system. The primary interface is command-line driven, wrapping Terraform, Ansible, and Nomad operations behind simplified commands. The `iac` CLI (Go binary) reads all configuration from a single `homelab.yml` file and generates tool-specific configs before invoking underlying tools. Engineers never edit Ansible inventory, Terraform tfvars, or Nomad HCL files directly.
 
 ## IaC Operations
 
@@ -77,19 +77,23 @@ This document defines the CLI contracts for interacting with the IaC system. The
 
 **Purpose**: Deploy a media application as a Nomad-scheduled Docker container inside the workload VM.
 
--   **Functional Requirements**: FR-004, FR-004a, FR-005, FR-006
+-   **Functional Requirements**: FR-004, FR-004a, FR-005, FR-006, FR-012
 -   **CLI Command**: `iac deploy app --name <app_name>`
 -   **Inputs**:
     -   `app_name`: String - Application to deploy (`plex`, `sonarr`, `radarr`, `bazarr`).
-    -   `media_path`: String (optional) - Host path for media storage passthrough.
+    -   All other configuration (image, port, storage paths, resource limits) is read from `homelab.yml`.
 -   **What it does**:
-    1.  Submits the corresponding Nomad job file (`iac/nomad/jobs/<app_name>.hcl`) to the Nomad cluster.
-    2.  Nomad schedules the container on an available VM's Docker daemon.
-    3.  Container runs with `--read-only` root filesystem; `/config`, `/downloads`, `/media` mounted as writable volumes.
-    4.  Updates reverse proxy configuration to route traffic to the new container.
+    1.  Reads app configuration from `homelab.yml`.
+    2.  Generates the Nomad job HCL from template, injecting values from `homelab.yml`.
+    3.  Submits the generated Nomad job file to the Nomad cluster.
+    4.  Nomad schedules the container on an available VM's Docker daemon.
+    5.  Container runs with `--read-only` root filesystem; `/config`, `/downloads`, `/media` mounted as writable volumes.
+    6.  Reverse proxy automatically routes traffic to the new container.
+    7.  If `auto_update.enabled` is `true` in `homelab.yml`, the app is registered with the auto-updater periodic job.
 -   **Outputs**:
     -   Nomad job status (running/pending).
     -   Access URL via reverse proxy (e.g., `https://<host_ip>/plex`).
+    -   Auto-update status (enabled/disabled, next scheduled check).
 
 ### 4. Reverse Proxy Deployment
 
@@ -115,6 +119,83 @@ This document defines the CLI contracts for interacting with the IaC system. The
     -   Table of VMs with status, NAT IP, allocated resources.
     -   Table of Nomad jobs with status, placement (which VM), health.
     -   Network security summary (iptables rules active, egress blocking status).
+
+### 6. Auto-Update Management
+
+**Purpose**: View and manage automatic application updates.
+
+-   **Functional Requirements**: FR-012
+-   **CLI Commands**:
+    -   `iac update status` — Show auto-update status for all apps (last check time, current version, pending updates).
+    -   `iac update trigger --name <app_name>` — Manually trigger an update check for a specific app (useful for testing).
+    -   `iac update disable --name <app_name>` — Temporarily disable auto-updates for a specific app.
+    -   `iac update enable --name <app_name>` — Re-enable auto-updates for a specific app.
+-   **What auto-updates do** (runs automatically per `auto_update.schedule` in `homelab.yml`):
+    1.  A periodic Nomad batch job pulls the latest Docker image for each enabled app.
+    2.  Compares the new image digest to the currently running digest.
+    3.  If a new version is detected, triggers a Nomad deployment for the affected app.
+    4.  Nomad performs a health-checked rolling update (HTTP check on the app's web UI port).
+    5.  If the new container passes health checks, the deployment succeeds.
+    6.  If the new container fails health checks within the configured timeout, Nomad automatically reverts to the previous working version.
+-   **Outputs** (from `iac update status`):
+    -   Table of apps with: current image digest, last update time, auto-update enabled/disabled, last update result.
+
+## Unified Configuration Schema
+
+**Purpose**: Define the single source of truth for all infrastructure and application configuration (FR-013).
+
+**File**: `homelab.yml` at repository root.
+
+The `iac` CLI reads this file before every operation and generates tool-specific configs into `.generated/`:
+-   `.generated/ansible/inventory/` — Ansible hosts.yml and group_vars
+-   `.generated/terraform/terraform.tfvars` — Terraform variable values
+-   `.generated/nomad/` — Nomad HCL job files with injected values
+
+**Schema**:
+
+```yaml
+cluster:
+  name: String          # Cluster identifier (e.g., "homelab")
+  datacenter: String    # Nomad datacenter name (e.g., "dc1")
+
+hosts:
+  <host_name>:          # Unique host identifier
+    ip: String          # Host IP on home LAN
+    nat_subnet: String  # Private NAT subnet for VMs (e.g., "192.168.122.0/24")
+    wireguard_endpoint: Boolean  # Whether this host runs the WireGuard server (only one host)
+
+vpn:
+  subnet: String        # VPN client subnet (e.g., "10.0.0.0/24")
+  endpoint: String      # Public hostname or IP for remote clients
+  port: Integer         # WireGuard listen port (default: 51820)
+  lan_routes: [String]  # Home LAN subnets to route to VPN clients
+
+storage:
+  media_path: String    # Host path for media libraries
+  downloads_path: String # Host path for download staging
+  config_path: String   # Host path for application config/databases
+
+apps:
+  <app_name>:           # Application identifier (plex, sonarr, radarr, bazarr)
+    enabled: Boolean    # Whether to deploy this app
+    image: String       # Docker image (default: linuxserver/<app_name>:latest)
+    port: Integer       # Application web UI port
+
+auto_update:
+  enabled: Boolean      # Enable automatic image updates (default: true)
+  schedule: String      # Cron expression for update checks (default: "0 3 * * *")
+  auto_revert: Boolean  # Auto-rollback on failed health check (default: true)
+  health_check_timeout: String  # Time to wait for health check (default: "5m")
+
+secrets:
+  ssh_key_path: String  # Path to SSH private key
+  ssh_user: String      # SSH user for server access
+```
+
+**Rules**:
+-   All values defined here are the canonical source. Tool-specific configs are generated, not hand-edited.
+-   Sensitive values (WireGuard private keys, API keys) are NOT stored in `homelab.yml`. They are generated by the `iac` CLI and stored in a `.secrets/` directory (gitignored) or injected via environment variables.
+-   `.generated/` directory is gitignored — it is regenerated on every `iac` command invocation.
 
 ## Nomad Job File Schema
 

@@ -62,6 +62,13 @@ Represents a Nomad job definition for a scheduled workload.
 -   **Port_Mappings**: List of Strings (e.g., `["32400:32400/tcp"]`) - Container port mappings.
 -   **Environment_Variables**: Map of Strings - Key-value pairs for container environment.
 -   **Status**: Enum (`running`, `pending`, `dead`) - Job status from Nomad.
+-   **Auto_Update_Enabled**: Boolean - Whether this job participates in automatic image updates.
+-   **Update_Strategy**: Object - Nomad `update` stanza configuration:
+    -   **Health_Check**: String (e.g., `checks`) - Health check method.
+    -   **Health_Check_Timeout**: String (e.g., `5m`) - Time to wait for health check to pass.
+    -   **Auto_Revert**: Boolean (`true`) - Whether to automatically revert on failed deployment.
+-   **Current_Image_Digest**: String - SHA256 digest of the currently running Docker image.
+-   **Last_Updated**: Timestamp - When the job was last updated (manually or via auto-update).
 
 ### WireGuard_Server
 Represents the WireGuard VPN server running on the designated Physical_Host.
@@ -102,6 +109,30 @@ Represents application-specific configuration for each media service.
 -   **Media_Root_Path**: String (e.g., `/media/movies`) - Path to media library inside container.
 -   **Config_Path**: String (e.g., `/config`) - Path to persistent config/database inside container.
 
+### Unified_Configuration
+Represents the single source of truth configuration file (`homelab.yml`) that all tools consume.
+-   **File_Path**: String (`homelab.yml`) - Location at repository root.
+-   **Cluster_Config**: Object - Cluster name, datacenter.
+-   **Hosts_Config**: Map of `Physical_Host` configurations (IPs, NAT subnets, roles).
+-   **VPN_Config**: Object - VPN subnet, endpoint, port, LAN routes.
+-   **Storage_Config**: Object - Media, downloads, and config paths on the host.
+-   **Apps_Config**: Map of application configurations (enabled, image, port per app).
+-   **Auto_Update_Config**: Object - Enabled flag, cron schedule, auto-revert setting, health check timeout.
+-   **Secrets_Config**: Object - SSH key path, SSH user (secrets referenced by path, not stored inline).
+
+The `iac` CLI reads this entity and generates:
+-   Ansible inventory + group_vars → `.generated/ansible/`
+-   Terraform tfvars → `.generated/terraform/`
+-   Nomad HCL job files → `.generated/nomad/`
+
+### Auto_Update_Job
+Represents the periodic Nomad batch job that checks for and applies application updates.
+-   **Job_Name**: String (`auto-updater`) - Nomad job identifier.
+-   **Schedule**: String (cron expression, e.g., `0 3 * * *`) - How often to check for updates.
+-   **Monitored_Apps**: List of Strings - `Nomad_Job.Job_Name` references for apps to check.
+-   **Last_Run**: Timestamp - When the updater last ran.
+-   **Last_Result**: Enum (`no_updates`, `updated`, `update_failed_reverted`) - Outcome of the last run.
+
 ## Relationships
 
 -   **Physical_Host** 1--1 **Virtual_Machine**: Each host runs one VM for user-facing workloads (current constraint; scales to 1:N with more hardware).
@@ -114,6 +145,8 @@ Represents application-specific configuration for each media service.
 -   **Virtual_Machine** 1--1 **Reverse_Proxy**: Each VM has one reverse proxy.
 -   **Nomad_Job** 1--1 **Media_Application_Config**: Each media app job has one application config.
 -   **Reverse_Proxy** 1--N **Nomad_Job**: Reverse proxy routes to multiple media app containers.
+-   **Unified_Configuration** 1--1 **System**: Single config file generates all tool-specific configs.
+-   **Auto_Update_Job** 1--N **Nomad_Job**: The auto-updater monitors and triggers updates for media app jobs.
 
 ## State Transitions
 
@@ -132,4 +165,7 @@ offline -> provisioning -> online -> decommissioned
 ```
 (none) -> pending -> running -> dead
                   -> running (self-healing restart)
+                  -> running (auto-update: new image detected)
+                     -> health_check_pass -> running (new version)
+                     -> health_check_fail -> running (auto-reverted to previous version)
 ```

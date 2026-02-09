@@ -97,6 +97,96 @@
 -   **Rationale**: Nomad is lightweight (~500-750MB RAM for server + client), has a native Docker task driver, mature Terraform and Ansible integration, and scales from 2 nodes to thousands without architectural changes. Its HCL-based job files are simpler than Kubernetes YAML manifests. Nomad is purpose-built for workload scheduling and avoids the operational complexity of a full Kubernetes deployment, making it ideal for a resource-constrained homelab that needs to scale later.
 -   **Alternatives Considered**: Kubernetes/k3s (heavier resource footprint, more operational complexity than warranted at this scale); Docker Compose with static assignment (simpler but does not scale -- no automatic workload distribution); Docker Swarm (essentially in maintenance mode, limited future investment); Custom Go scheduler (significant development effort to replicate what Nomad provides out of the box).
 
+### 7. Application Auto-Updates
+
+-   **Decision**: Media applications (Plex, Sonarr, Radarr, Bazarr) are automatically updated using a Nomad-native approach. Each application's Nomad job uses a Docker image tag (e.g., `linuxserver/plex:latest`). A lightweight periodic Nomad batch job runs on a schedule (e.g., daily at 3 AM) that:
+    1.  Pulls the latest image for each media app (`docker pull`).
+    2.  Compares the new image digest to the currently running digest.
+    3.  If a new version is detected, triggers a Nomad job deployment for the affected application.
+
+    Nomad's built-in `update` stanza in each job definition controls the rollout:
+    -   **Health check**: Nomad waits for the new container to pass health checks (HTTP check on the app's web UI port) before marking the deployment as successful.
+    -   **Auto-revert**: If the new container fails health checks within a configurable timeout, Nomad automatically reverts to the previous working version.
+    -   **Rolling update**: One application updates at a time, so the entire media stack is never down simultaneously.
+
+    Application data (`/config`, `/downloads`, `/media` volumes) is mounted from the host and persists across container replacements, so updates never cause data loss.
+
+-   **Rationale**: A Nomad-native approach is chosen over alternatives because Nomad already manages container lifecycle. Using Nomad's deployment mechanism ensures the scheduler is always aware of what's running (no out-of-band container restarts that confuse Nomad's state). The `update` stanza with `auto_revert = true` directly satisfies the spec's requirement for automatic rollback on failure (US4 acceptance scenario 3). Health checks ensure the new version actually works before the old one is removed. Running the check as a periodic Nomad batch job keeps the update mechanism within the same scheduling system — no additional cron infrastructure needed.
+
+-   **Alternatives Considered**: Watchtower (runs as a Docker container that watches for image updates and restarts containers directly — but this bypasses Nomad entirely, causing Nomad to see unexpected container restarts and potentially fight with Watchtower over container state; unacceptable when Nomad is the workload scheduler); Manual `iac update apps` command (simple but doesn't meet FR-012's "without manual intervention" requirement); OS-level cron job (works but adds infrastructure outside Nomad's management; the periodic batch job keeps everything in one system).
+
+### 8. Unified Configuration (Single Source of Truth)
+
+-   **Decision**: All user-configurable values are defined in a single configuration file at the repository root: `homelab.yml`. This file is the sole place an engineer edits configuration. The `iac` CLI wrapper reads `homelab.yml` and generates or passes the appropriate values to each underlying tool:
+
+    -   **Ansible**: The `iac` CLI generates the Ansible inventory (`hosts.yml`, `group_vars/`) from `homelab.yml` before running playbooks. The engineer never edits the Ansible inventory directly.
+    -   **Terraform**: The `iac` CLI generates a `terraform.tfvars` file from `homelab.yml` before running `terraform apply`. The engineer never edits `.tfvars` files directly.
+    -   **Nomad**: The `iac` CLI templates Nomad HCL job files from `homelab.yml` values (e.g., media paths, resource limits, image tags) before submitting them. The engineer never edits HCL files directly for configuration values.
+
+    The `homelab.yml` file is structured by concern:
+
+    ```yaml
+    # homelab.yml — single source of truth
+    cluster:
+      name: homelab
+      datacenter: dc1
+
+    hosts:
+      homelab-host-01:
+        ip: 192.168.1.10
+        nat_subnet: 192.168.122.0/24
+        wireguard_endpoint: true
+      homelab-host-02:
+        ip: 192.168.1.11
+        nat_subnet: 192.168.123.0/24
+
+    vpn:
+      subnet: 10.0.0.0/24
+      endpoint: home.example.com
+      port: 51820
+      lan_routes:
+        - 192.168.1.0/24
+
+    storage:
+      media_path: /mnt/media
+      downloads_path: /mnt/downloads
+      config_path: /mnt/config
+
+    apps:
+      plex:
+        enabled: true
+        image: linuxserver/plex:latest
+        port: 32400
+      sonarr:
+        enabled: true
+        image: linuxserver/sonarr:latest
+        port: 8989
+      radarr:
+        enabled: true
+        image: linuxserver/radarr:latest
+        port: 7878
+      bazarr:
+        enabled: true
+        image: linuxserver/bazarr:latest
+        port: 6767
+
+    auto_update:
+      enabled: true
+      schedule: "0 3 * * *"  # daily at 3 AM
+      auto_revert: true
+      health_check_timeout: 5m
+
+    secrets:
+      ssh_key_path: ~/.ssh/id_ed25519
+      ssh_user: admin
+    ```
+
+    The tool-specific files (`hosts.yml`, `terraform.tfvars`, `*.hcl`) are generated artifacts — they live in a `.generated/` directory (or are generated in-memory) and should not be manually edited. The `iac` CLI regenerates them on every run from `homelab.yml`.
+
+-   **Rationale**: This directly satisfies FR-013 (single source of truth) and SC-008 (change a value in one place, all tools reflect it). The engineer's mental model is simple: "edit `homelab.yml`, run `iac` commands." They never need to know that Ansible uses a different inventory format, Terraform uses `.tfvars`, and Nomad uses HCL — the `iac` wrapper abstracts that away. This also reduces configuration drift errors: if a server IP changes, the engineer updates it in one place, not in three separate tool-specific files. The `homelab.yml` structure mirrors the data model entities (hosts, VPN, apps, storage), making it intuitive. Secrets that should not be committed to git (e.g., WireGuard private keys) are stored separately and referenced by path, or injected via environment variables.
+
+-   **Alternatives Considered**: Ansible inventory as the source of truth (forces the engineer to learn Ansible's inventory format, and Terraform/Nomad configs would still need separate files or complex variable passing); Terraform variables as the source of truth (similar issue — Ansible would need to read Terraform output, adding a dependency chain); environment variables for everything (no single file to review, harder to version control, error-prone); separate config files per tool with a sync script (fragile, the sync script becomes a maintenance burden).
+
 ## Key Decisions Summary
 
 -   **OS**: Debian
@@ -106,4 +196,6 @@
 -   **Media Stack Deployment**: Docker containers (read-only) inside VM, scheduled by Nomad (1 VM per host for user-facing workloads)
 -   **Network Security**: Virtual bridge with private NAT subnet for application VMs, iptables egress blocking to prevent lateral movement, host-level port forwarding for ingress
 -   **Ingress**: Reverse proxy (Traefik/Caddy) inside VM for TLS termination, rate limiting, single ingress point
+-   **Auto-Updates**: Nomad-native periodic batch job + health-checked deployments with auto-revert
+-   **Configuration**: Single `homelab.yml` file at repo root; `iac` CLI generates tool-specific configs
 -   **Custom Scripting**: Go

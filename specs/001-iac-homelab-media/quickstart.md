@@ -40,32 +40,61 @@
 git clone <repo-url> && cd homelab-vibe
 ```
 
-### 2. Configure inventory
+### 2. Configure everything (one file)
 
-Edit `iac/ansible/inventory/hosts.yml` with your server details:
+Edit `homelab.yml` — this is the **only file you need to configure**:
 
 ```yaml
-all:
-  children:
-    hosts:
-      hosts:
-        homelab-host-01:
-          ansible_host: <server-1-ip>
-          nat_subnet: 192.168.122.0/24
-          wireguard_endpoint: true  # This host runs the WireGuard server
-        homelab-host-02:
-          ansible_host: <server-2-ip>
-          nat_subnet: 192.168.123.0/24
+# homelab.yml — single source of truth
+cluster:
+  name: homelab
+  datacenter: dc1
+
+hosts:
+  homelab-host-01:
+    ip: <server-1-ip>
+    nat_subnet: 192.168.122.0/24
+    wireguard_endpoint: true
+  homelab-host-02:
+    ip: <server-2-ip>
+    nat_subnet: 192.168.123.0/24
+
+vpn:
+  subnet: 10.0.0.0/24
+  endpoint: <your-public-ip-or-ddns-hostname>
+  port: 51820
+  lan_routes:
+    - 192.168.1.0/24
+
+storage:
+  media_path: /mnt/media
+  downloads_path: /mnt/downloads
+  config_path: /mnt/config
+
+apps:
+  plex:
+    enabled: true
+    port: 32400
+  sonarr:
+    enabled: true
+    port: 8989
+  radarr:
+    enabled: true
+    port: 7878
+  bazarr:
+    enabled: true
+    port: 6767
+
+auto_update:
+  enabled: true
+  schedule: "0 3 * * *"  # daily at 3 AM
+
+secrets:
+  ssh_key_path: ~/.ssh/id_ed25519
+  ssh_user: admin
 ```
 
-### 3. Configure secrets
-
-Copy the example secrets file and fill in your values:
-
-```bash
-cp iac/ansible/inventory/group_vars/all/secrets.yml.example iac/ansible/inventory/group_vars/all/secrets.yml
-# Edit with your SSH key paths, WireGuard endpoint hostname/IP, etc.
-```
+That's it. The `iac` CLI reads this file and generates all tool-specific configs (Ansible inventory, Terraform variables, Nomad job files) automatically. You never edit those generated files directly.
 
 ## Deployment
 
@@ -119,6 +148,8 @@ iac deploy app --name bazarr
 ```
 
 **What happens**: Each command submits a Nomad job. Nomad schedules the container on an available VM's Docker daemon with a read-only root filesystem. The reverse proxy automatically routes traffic to the new container.
+
+**Auto-updates**: If `auto_update.enabled` is `true` in `homelab.yml` (the default), a periodic Nomad job is also deployed that checks for new Docker image versions daily. When a new version is found, Nomad performs a health-checked rolling update with automatic rollback if the new version fails. No manual intervention needed.
 
 ### Step 5: Verify
 

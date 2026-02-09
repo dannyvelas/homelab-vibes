@@ -54,6 +54,38 @@ The entire infrastructure, including the host OS, network, and deployed applicat
 
 ---
 
+### User Story 4 - Media Applications Automatically Update to Latest Versions (Priority: P2)
+
+Deployed media applications (Plex, Sonarr, Radarr, Bazarr) automatically detect and apply new version updates without requiring manual intervention from an engineer. The update process preserves application data and configuration. Applications remain available during the update with minimal downtime.
+
+**Why this priority**: Keeping applications up-to-date is critical for security (patching vulnerabilities) and functionality (new features, bug fixes). Automating this removes ongoing maintenance burden from the engineering team, aligning with the "Easy/Automated End-User Experience" principle.
+
+**Independent Test**: Deploy a media application at a known version. Wait for or simulate a new version release. Verify that the application is automatically updated to the new version, that its data and configuration are preserved, and that it remains accessible after the update.
+
+**Acceptance Scenarios**:
+
+1.  **Given** a media application is deployed and running, **When** a new version of that application is released, **Then** the system automatically updates the application to the new version within 24 hours.
+2.  **Given** an automatic update is in progress, **When** the update completes, **Then** all application data (libraries, settings, databases) is preserved and the application is fully functional.
+3.  **Given** an automatic update fails (e.g., new version crashes on startup), **When** the failure is detected, **Then** the system rolls back to the previous working version automatically.
+
+---
+
+### User Story 5 - Engineer Manages All Configuration from a Single Source of Truth (Priority: P1)
+
+An engineer configures the entire infrastructure and application stack by editing a single, unified configuration file (or a small set of clearly organized files in one location). They never need to duplicate values across multiple tools, copy-paste settings between provisioning and configuration files, or worry about keeping multiple config sources in sync. The system's tooling reads from this single source and generates whatever tool-specific configuration is needed internally.
+
+**Why this priority**: Configuration duplication is a major source of errors and friction in IaC systems. A single source of truth directly supports FR-011 (easy/automated UX) and FR-010 (portability — one config to update when migrating to new hardware).
+
+**Independent Test**: The engineer changes a single value (e.g., a server IP address or a media storage path) in one place, runs the deployment, and verifies that all affected components (provisioning, configuration, application deployment) correctly reflect the change without any additional manual edits.
+
+**Acceptance Scenarios**:
+
+1.  **Given** an engineer needs to configure the infrastructure, **When** they look for where to define settings, **Then** there is one clearly documented location for all configuration values.
+2.  **Given** a configuration value (e.g., server IP, storage path, VPN subnet) is used by multiple underlying tools, **When** the engineer updates that value in the single source of truth, **Then** all tools consume the updated value automatically on the next deployment.
+3.  **Given** the engineer has never used the system before, **When** they follow the quickstart guide, **Then** they only need to edit configuration in one location before running deployment commands.
+
+---
+
 ### Edge Cases
 
 - What happens if a server's network connection is interrupted during deployment or operation?
@@ -61,6 +93,8 @@ The entire infrastructure, including the host OS, network, and deployed applicat
 - What is the rollback strategy if an automated deployment fails or introduces a critical error?
 - How are application configurations (e.g., Plex libraries, Sonarr/Radarr settings) persisted and backed up?
 - What happens if one of the old laptops fails completely, considering the resource limitations?
+- What happens if an automatic application update introduces a breaking change or is incompatible with the current configuration?
+- What happens if two applications have conflicting version requirements (e.g., Sonarr requires a specific Radarr API version)?
 
 ## Requirements *(mandatory)*
 
@@ -78,6 +112,8 @@ The entire infrastructure, including the host OS, network, and deployed applicat
 - **FR-009**: System MUST prevent lateral movement from compromised applications to other network devices.
 - **FR-010**: The infrastructure as code solution MUST be reusable and portable for future migration to different bare-metal servers.
 - **FR-011**: The setup and deployment processes MUST provide an automated, easy, and quick user experience for an engineer.
+- **FR-012**: Deployed media applications (Plex, Sonarr, Radarr, Bazarr) MUST be automatically updated to the latest version when a new release is available, without manual intervention from the engineer.
+- **FR-013**: The system MUST provide a single source of truth for all infrastructure and application configuration. Engineers MUST NOT need to duplicate or synchronize configuration values across multiple tools or files. All configuration MUST be defined in one place and consumed by the underlying provisioning and configuration tools transparently.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -93,6 +129,7 @@ The entire infrastructure, including the host OS, network, and deployed applicat
 - **Remote User**: User accessing LAN resources via VPN.
 - **Container Scheduler**: Software that manages which containers run on which hosts/VMs and handles their lifecycle (start, stop, restart, placement).
 - **IaC Configuration**: Code defining infrastructure and application deployments.
+- **Unified Configuration**: The single source of truth for all infrastructure and application settings, consumed by all underlying tools.
 
 ## Success Criteria *(mandatory)*
 
@@ -104,4 +141,6 @@ The entire infrastructure, including the host OS, network, and deployed applicat
 - **SC-004**: A security scan (e.g., Nessus, OpenVAS) reports zero critical or high-severity vulnerabilities directly attributable to misconfigurations or lack of isolation in the deployed infrastructure or applications.
 - **SC-005**: All deployed applications run within isolated environments (e.g., containers, VMs) with restricted network access, achieving a minimal attack surface.
 - **SC-006**: The IaC codebase can be executed on a separate bare-metal environment (simulating future migration) and successfully reproduce the identical infrastructure setup.
+- **SC-007**: All deployed media applications are automatically updated to the latest version within 24 hours of a new release, with zero data loss and automatic rollback on failure.
+- **SC-008**: An engineer can change any shared configuration value (e.g., server IP, storage path) in exactly one location, and all affected infrastructure and application components reflect the change on the next deployment run.
 
