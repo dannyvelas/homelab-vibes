@@ -1,0 +1,47 @@
+---
+# Egress rules: deny VM-to-LAN by default, allow only internet/DNS/NTP.
+# Prevents lateral movement from a compromised VM to other LAN devices.
+
+# Allow established/related connections (return traffic for allowed outbound)
+- name: Allow established/related return traffic from VM
+  ansible.builtin.iptables:
+    chain: FORWARD
+    source: "{{ nat_subnet }}"
+    ctstate:
+      - ESTABLISHED
+      - RELATED
+    jump: ACCEPT
+    comment: "Allow established return traffic from VM"
+  notify: Save iptables
+
+# Allow specific egress destinations
+- name: Allow VM egress to permitted destinations
+  ansible.builtin.iptables:
+    chain: FORWARD
+    source: "{{ nat_subnet }}"
+    destination: "{{ item.dest }}"
+    protocol: "{{ item.proto }}"
+    destination_port: "{{ item.port }}"
+    jump: ACCEPT
+    comment: "VM egress: {{ item.comment }}"
+  loop: "{{ nat_egress_allowed }}"
+  notify: Save iptables
+
+# Block VM -> home LAN (lateral movement prevention)
+- name: Block VM traffic to home LAN
+  ansible.builtin.iptables:
+    chain: FORWARD
+    source: "{{ nat_subnet }}"
+    destination: "{{ home_lan_cidr }}"
+    jump: DROP
+    comment: "Block VM to home LAN (lateral movement prevention)"
+  notify: Save iptables
+
+# Default deny all other VM egress not explicitly allowed
+- name: Default deny remaining VM egress
+  ansible.builtin.iptables:
+    chain: FORWARD
+    source: "{{ nat_subnet }}"
+    jump: DROP
+    comment: "Default deny VM egress"
+  notify: Save iptables

@@ -17,12 +17,12 @@
 
 **Purpose**: Repository structure, tooling initialization, example configuration
 
-- [ ] T001 Create directory structure: `iac/terraform/`, `iac/ansible/playbooks/`, `iac/ansible/roles/`, `iac/nomad/jobs/`, `iac/templates/`, `iac/cli/`, `iac/docs/`, `tests/integration/`, `tests/unit/`
-- [ ] T002 Create `.gitignore` with entries for `.generated/`, `.secrets/`, `*.tfstate`, `*.tfstate.backup`, `.terraform/`
-- [ ] T003 [P] Initialize Go module for the `iac` CLI in `iac/cli/go.mod`
-- [ ] T004 [P] Create `homelab.yml.example` at repo root with all configuration sections (cluster, hosts, vpn, storage, apps, auto_update, secrets) per the schema in contracts/README.md
-- [ ] T005 [P] Create Terraform provider configuration for `dmacvicar/libvirt` and `hashicorp/nomad` in `iac/terraform/providers.tf`
-- [ ] T006 [P] Create Terraform variable declarations (matching homelab.yml schema) in `iac/terraform/variables.tf`
+- [X] T001 Create directory structure: `iac/terraform/`, `iac/ansible/playbooks/`, `iac/ansible/roles/`, `iac/nomad/jobs/`, `iac/templates/`, `iac/cli/`, `iac/docs/`, `tests/integration/`, `tests/unit/`
+- [X] T002 Create `.gitignore` with entries for `.generated/`, `.secrets/`, `*.tfstate`, `*.tfstate.backup`, `.terraform/`
+- [X] T003 [P] Initialize Go module for the `iac` CLI in `iac/cli/go.mod`
+- [X] T004 [P] Create `homelab.yml.example` at repo root with all configuration sections (cluster, hosts, vpn, storage, apps, auto_update, secrets) per the schema in contracts/README.md
+- [X] T005 [P] Create Terraform provider configuration for `dmacvicar/libvirt` and `hashicorp/nomad` in `iac/terraform/providers.tf`
+- [X] T006 [P] Create Terraform variable declarations (matching homelab.yml schema) in `iac/terraform/variables.tf`
 
 ---
 

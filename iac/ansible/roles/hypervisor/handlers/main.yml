@@ -1,0 +1,10 @@
+---
+# Hypervisor handlers
+
+- name: restart libvirtd
+  ansible.builtin.systemd:
+    name: "{{ hypervisor_libvirt_service }}"
+    state: restarted
+  tags:
+    - hypervisor
+    - handlers

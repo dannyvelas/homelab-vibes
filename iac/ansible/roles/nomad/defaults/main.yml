@@ -1,0 +1,31 @@
+---
+# Nomad role defaults
+
+# Nomad version to install (if pinning desired, otherwise latest from HashiCorp repo)
+nomad_version: latest
+
+# Nomad data directory
+nomad_data_dir: /opt/nomad/data
+
+# Nomad configuration directory
+nomad_config_dir: /etc/nomad.d
+
+# Cluster configuration
+nomad_datacenter: dc1
+nomad_region: global
+
+# Server configuration
+nomad_server_enabled: true
+nomad_server_bootstrap_expect: 1
+
+# Client configuration
+nomad_client_enabled: true
+
+# Network configuration
+nomad_bind_addr: "0.0.0.0"
+
+# Logging
+nomad_log_level: INFO
+
+# Service configuration
+nomad_service_name: nomad

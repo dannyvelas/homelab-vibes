@@ -1,0 +1,24 @@
+# Nomad configuration
+# Managed by Ansible - do not edit directly
+
+data_dir = "{{ nomad_data_dir }}"
+
+datacenter = "{{ nomad_datacenter }}"
+region     = "{{ nomad_region }}"
+
+bind_addr = "{{ nomad_bind_addr }}"
+
+log_level = "{{ nomad_log_level }}"
+
+{% if nomad_server_enabled %}
+server {
+  enabled = true
+  bootstrap_expect = {{ nomad_server_bootstrap_expect }}
+}
+{% endif %}
+
+{% if nomad_client_enabled %}
+client {
+  enabled = true
+}
+{% endif %}

@@ -1,0 +1,113 @@
+---
+# Hypervisor installation and configuration tasks
+
+- name: Install KVM/libvirt packages
+  ansible.builtin.apt:
+    name: "{{ hypervisor_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags:
+    - hypervisor
+    - packages
+
+- name: Ensure admin user is in libvirt group
+  ansible.builtin.user:
+    name: "{{ hypervisor_admin_user }}"
+    groups: libvirt
+    append: true
+  tags:
+    - hypervisor
+    - users
+
+- name: Enable and start libvirtd service
+  ansible.builtin.systemd:
+    name: "{{ hypervisor_libvirt_service }}"
+    enabled: true
+    state: started
+  tags:
+    - hypervisor
+    - services
+
+- name: Check if default storage pool exists
+  ansible.builtin.command: virsh pool-info {{ hypervisor_storage_pool_name }}
+  register: pool_info
+  changed_when: false
+  failed_when: false
+  tags:
+    - hypervisor
+    - storage
+
+- name: Define default storage pool
+  ansible.builtin.command: >
+    virsh pool-define-as {{ hypervisor_storage_pool_name }} dir
+    --target {{ hypervisor_storage_pool_path }}
+  when: pool_info.rc != 0
+  notify: restart libvirtd
+  tags:
+    - hypervisor
+    - storage
+
+- name: Create storage pool directory
+  ansible.builtin.file:
+    path: "{{ hypervisor_storage_pool_path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0711'
+  tags:
+    - hypervisor
+    - storage
+
+- name: Build storage pool
+  ansible.builtin.command: virsh pool-build {{ hypervisor_storage_pool_name }}
+  when: pool_info.rc != 0
+  register: pool_build
+  changed_when: pool_build.rc == 0
+  failed_when: false
+  tags:
+    - hypervisor
+    - storage
+
+- name: Start storage pool
+  ansible.builtin.command: virsh pool-start {{ hypervisor_storage_pool_name }}
+  when: pool_info.rc != 0
+  register: pool_start
+  changed_when: pool_start.rc == 0
+  failed_when: false
+  tags:
+    - hypervisor
+    - storage
+
+- name: Autostart storage pool
+  ansible.builtin.command: virsh pool-autostart {{ hypervisor_storage_pool_name }}
+  when: hypervisor_storage_pool_autostart and pool_info.rc != 0
+  register: pool_autostart
+  changed_when: pool_autostart.rc == 0
+  tags:
+    - hypervisor
+    - storage
+
+- name: Verify KVM module is loaded
+  ansible.builtin.command: lsmod
+  register: lsmod_output
+  changed_when: false
+  failed_when: "'kvm_intel' not in lsmod_output.stdout and 'kvm_amd' not in lsmod_output.stdout"
+  tags:
+    - hypervisor
+    - verify
+
+- name: Display libvirt version
+  ansible.builtin.command: virsh version
+  register: virsh_version
+  changed_when: false
+  tags:
+    - hypervisor
+    - verify
+
+- name: Show libvirt version
+  ansible.builtin.debug:
+    msg: "{{ virsh_version.stdout_lines }}"
+  tags:
+    - hypervisor
+    - verify

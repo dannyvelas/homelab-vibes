@@ -1,0 +1,21 @@
+---
+# Hypervisor role defaults
+
+# KVM/libvirt packages to install
+hypervisor_packages:
+  - qemu-kvm
+  - libvirt-daemon-system
+  - libvirt-clients
+  - virtinst
+  - bridge-utils
+
+# Libvirt service configuration
+hypervisor_libvirt_service: libvirtd
+
+# Default storage pool configuration
+hypervisor_storage_pool_name: default
+hypervisor_storage_pool_path: /var/lib/libvirt/images
+hypervisor_storage_pool_autostart: true
+
+# Admin user to add to libvirt group
+hypervisor_admin_user: admin

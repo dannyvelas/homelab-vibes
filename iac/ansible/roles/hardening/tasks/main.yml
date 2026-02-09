@@ -1,0 +1,99 @@
+---
+# Debian OS hardening: UFW, SSH, auto-updates, least privilege
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install essential security packages
+  ansible.builtin.apt:
+    name:
+      - ufw
+      - fail2ban
+      - unattended-upgrades
+      - apt-listchanges
+    state: present
+
+# --- UFW firewall ---
+
+- name: Set UFW default incoming policy
+  community.general.ufw:
+    direction: incoming
+    policy: "{{ hardening_ufw_default_incoming }}"
+
+- name: Set UFW default outgoing policy
+  community.general.ufw:
+    direction: outgoing
+    policy: "{{ hardening_ufw_default_outgoing }}"
+
+- name: Configure UFW rules
+  community.general.ufw:
+    rule: "{{ item.rule }}"
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "{{ item.comment | default(omit) }}"
+  loop: "{{ hardening_ufw_rules }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+# --- SSH hardening ---
+
+- name: Harden SSH configuration
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    validate: "sshd -t -f %s"
+  loop:
+    - { regexp: '^#?PermitRootLogin', line: "PermitRootLogin {{ hardening_ssh_permit_root }}" }
+    - { regexp: '^#?PasswordAuthentication', line: "PasswordAuthentication {{ hardening_ssh_password_auth }}" }
+    - { regexp: '^#?PubkeyAuthentication', line: "PubkeyAuthentication {{ hardening_ssh_pubkey_auth }}" }
+    - { regexp: '^#?MaxAuthTries', line: "MaxAuthTries {{ hardening_ssh_max_auth_tries }}" }
+    - { regexp: '^#?X11Forwarding', line: "X11Forwarding no" }
+    - { regexp: '^#?AllowAgentForwarding', line: "AllowAgentForwarding no" }
+  notify: Restart sshd
+
+# --- Automatic security updates ---
+
+- name: Configure unattended-upgrades
+  ansible.builtin.template:
+    src: 50unattended-upgrades.j2
+    dest: /etc/apt/apt.conf.d/50unattended-upgrades
+    mode: "0644"
+  when: hardening_auto_updates
+
+- name: Enable automatic updates timer
+  ansible.builtin.template:
+    src: 20auto-upgrades.j2
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+  when: hardening_auto_updates
+
+# --- Least privilege user ---
+
+- name: Ensure admin user exists
+  ansible.builtin.user:
+    name: "{{ hardening_admin_user }}"
+    groups: "{{ hardening_admin_groups }}"
+    append: true
+    shell: /bin/bash
+    create_home: true
+
+- name: Ensure admin user has sudo with NOPASSWD
+  ansible.builtin.lineinfile:
+    path: "/etc/sudoers.d/{{ hardening_admin_user }}"
+    line: "{{ hardening_admin_user }} ALL=(ALL) NOPASSWD:ALL"
+    create: true
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+# --- Fail2ban ---
+
+- name: Enable and start fail2ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    enabled: true
+    state: started

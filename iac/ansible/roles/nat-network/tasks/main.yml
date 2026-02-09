@@ -1,0 +1,59 @@
+---
+# NAT networking: Linux bridge, private subnet, iptables masquerade,
+# egress blocking, and port forwarding for VM isolation.
+
+- name: Install iptables-persistent
+  ansible.builtin.apt:
+    name:
+      - iptables-persistent
+      - netfilter-persistent
+    state: present
+
+- name: Enable IPv4 forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_set: true
+    reload: true
+
+# --- NAT masquerade (VM -> internet) ---
+
+- name: Enable NAT masquerade for VM subnet
+  ansible.builtin.iptables:
+    table: nat
+    chain: POSTROUTING
+    source: "{{ nat_subnet }}"
+    out_interface: "{{ ansible_default_ipv4.interface }}"
+    jump: MASQUERADE
+    comment: "NAT masquerade for VM subnet"
+  notify: Save iptables
+
+# --- Ingress: port forwarding from host to VM ---
+
+- name: Forward ingress ports to VM reverse proxy
+  ansible.builtin.iptables:
+    table: nat
+    chain: PREROUTING
+    protocol: "{{ item.proto }}"
+    destination_port: "{{ item.host_port }}"
+    jump: DNAT
+    to_destination: "{{ nat_vm_ip }}:{{ item.vm_port }}"
+    comment: "{{ item.comment }}"
+  loop: "{{ nat_ingress_rules }}"
+  notify: Save iptables
+
+- name: Allow forwarded traffic to VM
+  ansible.builtin.iptables:
+    chain: FORWARD
+    destination: "{{ nat_vm_ip }}"
+    protocol: "{{ item.proto }}"
+    destination_port: "{{ item.vm_port }}"
+    jump: ACCEPT
+    comment: "Allow forwarded {{ item.comment }}"
+  loop: "{{ nat_ingress_rules }}"
+  notify: Save iptables
+
+# --- Egress blocking ---
+
+- name: Include egress hardening tasks
+  ansible.builtin.include_tasks: egress.yml
