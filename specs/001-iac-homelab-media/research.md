@@ -9,9 +9,38 @@
 
 ### 1. IaC Strategy and Integration
 
--   **Decision**: Terraform will be used for initial server provisioning and management of infrastructure resources, while Ansible will be utilized for configuration management, OS hardening, Nomad/Docker setup, and application deployment.
--   **Rationale**: This combination leverages Terraform's strengths in declarative infrastructure state management and Ansible's powerful capabilities for idempotent software configuration and orchestration. It provides a robust, flexible, and well-supported IaC solution that aligns with the user's preference for these tools.
--   **Alternatives Considered**: Pure Ansible (less suitable for initial bare-metal provisioning and state management); Pure Terraform (less suitable for intricate software configurations and application deployments); Custom scripting (higher initial development effort to match capabilities of established tools).
+-   **Decision**: The IaC uses a two-layer architecture with clear separation of concerns:
+
+    **Terraform (lifecycle management)**: Manages the lifecycle of infrastructure resources that expose APIs — specifically VMs via the `dmacvicar/libvirt` Terraform provider, and Nomad workloads via the `hashicorp/nomad` Terraform provider. Terraform runs on the engineer's workstation (zero RAM cost on the servers) and communicates with libvirt and Nomad APIs over the network. This gives the system declarative create-and-destroy semantics: `terraform apply` creates VMs and deploys Nomad jobs, `terraform destroy` cleanly tears them down, and Terraform state tracks exactly what resources exist.
+
+    **Ansible (configuration management)**: Manages everything that doesn't have an API and requires SSH-based convergence — OS hardening, package installation, service configuration, iptables rules, WireGuard setup, and initial bootstrapping of KVM/libvirt and Nomad on fresh hosts. Ansible playbooks are idempotent and can be safely re-run to converge a host to the desired state.
+
+    The two layers map to the infrastructure like this:
+    ```
+    ┌─────────────────────────────────────────────────┐
+    │  Terraform (engineer's workstation)             │
+    │  ├── libvirt provider  → VM lifecycle           │
+    │  └── nomad provider    → workload lifecycle     │
+    └──────────────┬──────────────────┬───────────────┘
+                   │ libvirt API      │ Nomad API
+    ┌──────────────▼──────────────────▼───────────────┐
+    │  Host layer (acts as "cloud provider")          │
+    │  ├── KVM/libvirt  → VM create/destroy/snapshot  │
+    │  ├── Nomad        → workload scheduling         │
+    │  └── WireGuard    → VPN                         │
+    └──────────────┬──────────────────────────────────┘
+                   │ SSH
+    ┌──────────────▼──────────────────────────────────┐
+    │  Ansible (engineer's workstation)               │
+    │  └── OS hardening, packages, services, iptables │
+    └─────────────────────────────────────────────────┘
+    ```
+
+    This mirrors how companies use Terraform with cloud providers — except here, libvirt and Nomad serve as the on-premise "cloud provider" APIs. The same Terraform workflow (`plan`, `apply`, `destroy`) works regardless of whether the backing infrastructure is AWS, GCP, or a homelab running libvirt. This means the Terraform layer is portable: if the team later adopts a bare-metal provisioning system (e.g., MAAS) or moves workloads to a cloud provider, they add a new Terraform provider without changing the Ansible configuration layer.
+
+-   **Rationale**: The key reason for using both tools (rather than Ansible alone) is **lifecycle management**. Ansible excels at configuring systems but has no built-in concept of "I own these resources and can cleanly destroy them." To tear down a VM or remove a Nomad job with Ansible, you'd need to write and maintain separate teardown playbooks — the reverse of every creation step. Terraform solves this with state-tracked lifecycle: it knows what it created and can surgically remove it via `terraform destroy`. This directly supports FR-011 (easy/automated UX) — tearing down infrastructure should be as easy as standing it up. The separation also makes the codebase clearer: Terraform files declare *what resources should exist*, Ansible playbooks declare *how those resources should be configured*.
+
+-   **Alternatives Considered**: Pure Ansible (can create resources but lacks clean destroy/lifecycle management — no state tracking means teardown requires manually maintained reverse playbooks; viable for simple setups but increasingly fragile as infrastructure grows); Pure Terraform (cannot SSH into servers and configure OS, install packages, or manage services — it's a provisioning tool, not a configuration management tool); NixOS declarative configuration (the OS itself becomes IaC — interesting but requires learning the Nix language, has a steep learning curve, and would replace Ansible entirely with a different paradigm); Custom Go tooling (high initial development effort to replicate what Terraform + Ansible provide out of the box); Pulumi (like Terraform but uses real programming languages like Go — viable but smaller ecosystem of providers and community content than Terraform).
 
 ### 2. Debian Server Hardening
 
@@ -71,7 +100,7 @@
 ## Key Decisions Summary
 
 -   **OS**: Debian
--   **IaC Tools**: Terraform (provisioning), Ansible (configuration/deployment)
+-   **IaC Tools**: Terraform (lifecycle management via libvirt + Nomad providers), Ansible (configuration management via SSH)
 -   **VPN**: WireGuard (kernel module, runs on host)
 -   **Container Scheduler**: Nomad (runs on host; client also runs inside VM)
 -   **Media Stack Deployment**: Docker containers (read-only) inside VM, scheduled by Nomad (1 VM per host for user-facing workloads)
