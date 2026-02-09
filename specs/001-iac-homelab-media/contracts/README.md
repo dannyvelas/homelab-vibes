@@ -11,7 +11,7 @@ This document defines the CLI contracts for interacting with the IaC system. The
 
 ### 1. Server Provisioning and Host Setup
 
-**Purpose**: Automate initial setup of a bare-metal server: OS hardening, hypervisor installation, Nomad server/client, Tailscale, NAT networking, and VM creation.
+**Purpose**: Automate initial setup of a bare-metal server: OS hardening, hypervisor installation, Nomad server/client, WireGuard, NAT networking, and VM creation.
 
 -   **Functional Requirements**: FR-001, FR-007, FR-008
 -   **CLI Command**: `iac provision host --name <host_name> --ip <ip_address>`
@@ -34,21 +34,44 @@ This document defines the CLI contracts for interacting with the IaC system. The
 
 ### 2. VPN Deployment
 
-**Purpose**: Deploy and configure Tailscale on the host for secure remote access.
+**Purpose**: Deploy and configure WireGuard on the designated host for secure remote access.
 
 -   **Functional Requirements**: FR-002, FR-003
--   **CLI Command**: `iac deploy vpn --host <host_name> --auth-key <tailscale_auth_key>`
+-   **CLI Command**: `iac deploy vpn --host <host_name>`
 -   **Inputs**:
-    -   `host_name`: String - Target host for Tailscale deployment.
-    -   `tailscale_auth_key`: String (Sensitive) - Pre-authenticated key for node registration.
-    -   `advertised_routes`: List of Strings (optional, default: `["192.168.1.0/24"]`) - Subnets to advertise.
+    -   `host_name`: String - Target host for WireGuard deployment (must have gateway port forward configured).
+    -   `vpn_subnet`: String (optional, default: `10.0.0.0/24`) - Subnet for VPN clients.
+    -   `endpoint`: String (optional) - Public hostname or IP for remote clients. If omitted, auto-detected or read from config.
+    -   `lan_routes`: List of Strings (optional, default: `["192.168.1.0/24"]`) - Home LAN subnets to route to VPN clients.
 -   **What it does**:
-    1.  Runs Ansible playbook to install Tailscale on the host.
-    2.  Registers the node with the Tailnet using the auth key.
-    3.  Configures subnet routing for the specified routes.
+    1.  Runs Ansible playbook to enable WireGuard kernel module on the host.
+    2.  Generates server key pair (if not already present).
+    3.  Configures wg0 interface with listen port (UDP 51820), server private key, and VPN subnet.
+    4.  Sets up iptables rules for forwarding VPN client traffic to the home LAN and masquerading.
+    5.  Enables and starts the wg-quick systemd service.
 -   **Outputs**:
-    -   Tailscale IP address of the host.
-    -   Confirmation of subnet router advertisement.
+    -   Server public key (needed for client configs, auto-used by `generate vpn-client`).
+    -   VPN endpoint address.
+    -   Confirmation of wg0 interface status.
+
+### 2a. VPN Client Config Generation
+
+**Purpose**: Generate a WireGuard client configuration file for a team member's device.
+
+-   **Functional Requirements**: FR-003
+-   **CLI Command**: `iac generate vpn-client --name <peer_name>`
+-   **Inputs**:
+    -   `peer_name`: String - Human-readable name for the client (e.g., `danny-laptop`, `danny-phone`).
+-   **What it does**:
+    1.  Generates a unique key pair for the client.
+    2.  Assigns the next available IP in the VPN subnet.
+    3.  Adds the peer's public key to the server's WireGuard config.
+    4.  Generates a client config file with server public key, endpoint, allowed IPs (home LAN routes), and the client's private key.
+    5.  Generates a QR code (for mobile devices).
+-   **Outputs**:
+    -   Client config file path (e.g., `iac/wireguard/clients/danny-laptop.conf`).
+    -   QR code (displayed in terminal for mobile scanning).
+    -   Assigned VPN IP for the client.
 
 ### 3. Media Application Deployment
 
@@ -84,11 +107,11 @@ This document defines the CLI contracts for interacting with the IaC system. The
 
 ### 5. Cluster Status
 
-**Purpose**: Display the current state of all hosts, VMs, Nomad jobs, and Tailscale nodes.
+**Purpose**: Display the current state of all hosts, VMs, Nomad jobs, and WireGuard peers.
 
 -   **CLI Command**: `iac status`
 -   **Outputs**:
-    -   Table of hosts with status, IP, Tailscale IP.
+    -   Table of hosts with status, IP, WireGuard VPN IP (if VPN endpoint).
     -   Table of VMs with status, NAT IP, allocated resources.
     -   Table of Nomad jobs with status, placement (which VM), health.
     -   Network security summary (iptables rules active, egress blocking status).

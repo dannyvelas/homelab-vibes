@@ -105,9 +105,3 @@ The entire infrastructure, including the host OS, network, and deployed applicat
 - **SC-005**: All deployed applications run within isolated environments (e.g., containers, VMs) with restricted network access, achieving a minimal attack surface.
 - **SC-006**: The IaC codebase can be executed on a separate bare-metal environment (simulating future migration) and successfully reproduce the identical infrastructure setup.
 
-## Clarifications
-
-- The OS should be Debian, chosen for its stability, wide support, and suitability for resource-constrained environments.
-- The IaC tool should leverage both Ansible for configuration management and application deployment, and Terraform for infrastructure provisioning, providing a robust and flexible solution.
-- The VPN technology should be Tailscale, chosen for its simplicity, ease of use, and modern approach to secure network access.
-- The container scheduler should be HashiCorp Nomad, chosen for its lightweight resource footprint (~500-750MB RAM), native Docker driver, and ability to scale from 2 nodes to many without architectural changes. This is being built now on constrained hardware so the scheduling infrastructure is ready when the cluster grows.

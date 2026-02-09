@@ -20,7 +20,7 @@ Represents a physical server (laptop or bare-metal) running the host OS.
 -   **SSH_User**: String (e.g., `admin`) - User for SSH access.
 -   **SSH_Key_Path**: String - Path to SSH private key for automation.
 -   **Status**: Enum (`online`, `offline`, `provisioning`, `decommissioned`) - Operational status.
--   **Host Services**: Nomad (server + client), Tailscale, KVM/libvirt hypervisor -- trusted infrastructure running directly on the host OS.
+-   **Host Services**: Nomad (server + client), WireGuard (if designated VPN endpoint), KVM/libvirt hypervisor -- trusted infrastructure running directly on the host OS.
 
 ### Virtual_Machine
 Represents a KVM/libvirt VM running on a Physical_Host, providing kernel isolation for user-facing workloads.
@@ -63,13 +63,25 @@ Represents a Nomad job definition for a scheduled workload.
 -   **Environment_Variables**: Map of Strings - Key-value pairs for container environment.
 -   **Status**: Enum (`running`, `pending`, `dead`) - Job status from Nomad.
 
-### Tailscale_Node
-Represents a host registered as a node in the Tailnet.
--   **Host_Name**: String - References the `Physical_Host.Name` it's associated with.
--   **Tailscale_IP**: String (e.g., `100.x.y.z`) - Tailscale IP address.
--   **Advertised_Routes**: List of Strings (e.g., `["192.168.1.0/24"]`) - Subnets advertised by this node.
--   **Auth_Key_ID**: String - Identifier for the pre-authenticated key used for registration.
--   **Roles**: List of Strings (e.g., `subnet-router`, `exit-node`) - Tailscale-specific roles.
+### WireGuard_Server
+Represents the WireGuard VPN server running on the designated Physical_Host.
+-   **Host_Name**: String - References the `Physical_Host.Name` this server runs on.
+-   **Interface_Name**: String (e.g., `wg0`) - WireGuard network interface name.
+-   **Listen_Port**: Integer (default: `51820`) - UDP port WireGuard listens on.
+-   **Server_Private_Key**: String (Sensitive) - Server's WireGuard private key.
+-   **Server_Public_Key**: String - Server's WireGuard public key (distributed to clients).
+-   **VPN_Subnet**: String (e.g., `10.0.0.0/24`) - Subnet assigned to VPN clients.
+-   **Server_VPN_IP**: String (e.g., `10.0.0.1`) - Server's IP within the VPN subnet.
+-   **Endpoint**: String (e.g., `home.example.com:51820` or `<public-ip>:51820`) - Public-facing endpoint for remote clients.
+-   **Allowed_Routes**: List of Strings (e.g., `["192.168.1.0/24"]`) - Home LAN subnets routed to VPN clients.
+
+### WireGuard_Peer
+Represents a VPN client (team member's device) authorized to connect.
+-   **Name**: String (e.g., `danny-laptop`) - Human-readable peer identifier.
+-   **Public_Key**: String - Peer's WireGuard public key.
+-   **Private_Key**: String (Sensitive) - Peer's WireGuard private key (stored in generated client config only).
+-   **VPN_IP**: String (e.g., `10.0.0.2`) - Peer's assigned IP within the VPN subnet.
+-   **Config_File**: String - Path to the generated client config file.
 
 ### Reverse_Proxy
 Represents the reverse proxy running inside a VM as a Nomad-scheduled container.
@@ -93,7 +105,8 @@ Represents application-specific configuration for each media service.
 ## Relationships
 
 -   **Physical_Host** 1--1 **Virtual_Machine**: Each host runs one VM for user-facing workloads (current constraint; scales to 1:N with more hardware).
--   **Physical_Host** 1--1 **Tailscale_Node**: Each host registers as one Tailscale node.
+-   **Physical_Host** 1--0..1 **WireGuard_Server**: One host is designated as the WireGuard VPN endpoint.
+-   **WireGuard_Server** 1--N **WireGuard_Peer**: The server manages multiple authorized VPN peers (team members' devices).
 -   **Physical_Host** 1--1 **NAT_Network**: Each host has one NAT network configuration for its VMs.
 -   **Nomad_Cluster** 1--N **Physical_Host**: Cluster spans all hosts (Nomad servers).
 -   **Nomad_Cluster** 1--N **Virtual_Machine**: Cluster spans all VMs (Nomad clients).

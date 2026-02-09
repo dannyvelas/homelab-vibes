@@ -17,11 +17,15 @@
 -   Terraform (latest stable)
 -   Ansible (latest stable)
 -   Nomad CLI (latest stable)
+-   WireGuard client (available on all major platforms)
 -   Git
 
 ### Accounts & Keys
--   Tailscale account with a pre-authenticated auth key
 -   SSH key pair deployed to both servers
+
+### Network Preparation
+-   **One-time manual step**: Forward UDP port 51820 on your home gateway/router to the IP of the server that will act as the WireGuard endpoint. This requires access to your router's admin interface.
+-   (Optional) If your home IP is dynamic, set up a free dynamic DNS hostname (e.g., via DuckDNS, No-IP) pointing to your home public IP.
 
 ### Server Preparation
 -   Debian installed (minimal/netinst) on both servers
@@ -48,6 +52,7 @@ all:
         homelab-host-01:
           ansible_host: <server-1-ip>
           nat_subnet: 192.168.122.0/24
+          wireguard_endpoint: true  # This host runs the WireGuard server
         homelab-host-02:
           ansible_host: <server-2-ip>
           nat_subnet: 192.168.123.0/24
@@ -59,7 +64,7 @@ Copy the example secrets file and fill in your values:
 
 ```bash
 cp iac/ansible/inventory/group_vars/all/secrets.yml.example iac/ansible/inventory/group_vars/all/secrets.yml
-# Edit with your Tailscale auth key, SSH key paths, etc.
+# Edit with your SSH key paths, WireGuard endpoint hostname/IP, etc.
 ```
 
 ## Deployment
@@ -77,14 +82,22 @@ iac provision host --name homelab-host-02 --ip <server-2-ip>
 
 ### Step 2: Deploy VPN
 
-Installs Tailscale on both hosts for secure remote access.
+Installs WireGuard on the designated host for secure remote access.
 
 ```bash
-iac deploy vpn --host homelab-host-01 --auth-key <your-tailscale-key>
-iac deploy vpn --host homelab-host-02 --auth-key <your-tailscale-key>
+iac deploy vpn --host homelab-host-01
 ```
 
-**What happens**: Tailscale is installed on the host (not the VM), registers with your Tailnet, and advertises the home LAN subnet. Remote team members can now VPN in via Tailscale.
+**What happens**: WireGuard kernel module is enabled, server keys are generated, the wg0 interface is configured with the home LAN subnet as an allowed route, and iptables rules are set for forwarding VPN traffic to the LAN. The VPN runs on one host only (the one with the port forward on the gateway). Remote team members connect using WireGuard client configs.
+
+### Step 2a: Generate VPN client configs
+
+```bash
+iac generate vpn-client --name "danny-laptop"
+iac generate vpn-client --name "danny-phone"
+```
+
+**What happens**: Generates a WireGuard client config file (and QR code for mobile) with the server's public key, endpoint address, and the client's unique key pair. The client imports this config into the WireGuard app to connect. Each team member gets their own config with a unique key pair.
 
 ### Step 3: Deploy reverse proxy
 
@@ -124,9 +137,12 @@ Check that all hosts, VMs, and Nomad jobs are healthy. Access:
 ```
 Home LAN (192.168.1.0/24)
   │
+  ├── Home Gateway/Router
+  │     └── UDP 51820 forwarded → Host 01
+  │
   ├── Host 01 (192.168.1.10)
   │     ├── Nomad server + client
-  │     ├── Tailscale
+  │     ├── WireGuard (wg0 interface, VPN endpoint)
   │     ├── iptables (NAT, port forwarding, egress blocking)
   │     └── VM (192.168.122.50) ← private subnet, not on LAN
   │           ├── Nomad client
@@ -137,7 +153,6 @@ Home LAN (192.168.1.0/24)
   │
   └── Host 02 (192.168.1.11)
         ├── Nomad server + client
-        ├── Tailscale
         ├── iptables (NAT, port forwarding, egress blocking)
         └── VM (192.168.123.50) ← private subnet, not on LAN
               ├── Nomad client
@@ -163,3 +178,4 @@ When you migrate to beefier hardware:
 2. Run `iac provision host` for each new host
 3. Nomad automatically distributes workloads across the expanded cluster
 4. No changes to Nomad job files needed
+5. Run `iac deploy vpn --host <new-host>` if you want to move the WireGuard endpoint (update gateway port forward accordingly)
