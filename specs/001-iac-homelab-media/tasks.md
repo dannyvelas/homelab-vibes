@@ -62,18 +62,18 @@
 
 ### Implementation
 
-- [ ] T016 [US5] Implement `homelab.yml` parser in Go — read and validate the YAML schema (cluster, hosts, vpn, storage, apps, auto_update, secrets sections) in `iac/cli/config/config.go`
-- [ ] T017 [P] [US5] Implement Ansible inventory generator — read `homelab.yml` hosts section and output `hosts.yml` + `group_vars/` into `.generated/ansible/inventory/` in `iac/cli/generators/ansible.go`
-- [ ] T018 [P] [US5] Implement Terraform tfvars generator — read `homelab.yml` and output `terraform.tfvars` into `.generated/terraform/` in `iac/cli/generators/terraform.go`
-- [ ] T019 [P] [US5] Implement Nomad HCL job file generator — read `homelab.yml` apps section and template Nomad job files into `.generated/nomad/` in `iac/cli/generators/nomad.go`
-- [ ] T020 [P] [US5] Create Nomad job templates (Go templates) for media apps in `iac/templates/nomad-app.hcl.tmpl`
-- [ ] T021 [P] [US5] Create Nomad job template for reverse proxy in `iac/templates/nomad-proxy.hcl.tmpl`
-- [ ] T022 [P] [US5] Create Nomad job template for auto-updater batch job in `iac/templates/nomad-updater.hcl.tmpl`
-- [ ] T023 [US5] Implement `iac` CLI main entrypoint with subcommand routing (provision, deploy, generate, status, update) in `iac/cli/main.go`
-- [ ] T024 [US5] Implement `iac provision host` subcommand — runs config generation then orchestrates Terraform apply + Ansible playbook in `iac/cli/cmd/provision.go`
-- [ ] T025 [US5] Implement `iac status` subcommand — queries Nomad API, WireGuard status, host health and displays formatted output in `iac/cli/cmd/status.go`
-- [ ] T026 [US5] Implement config validation — verify `homelab.yml` schema, required fields, valid IP ranges, no duplicate host names in `iac/cli/config/validate.go`
-- [ ] T027 [US5] Build and test the `iac` binary — `go build` in `iac/cli/`, verify `iac provision host` generates correct configs in `.generated/` from a test `homelab.yml`
+- [X] T016 [US5] Implement `homelab.yml` parser in Go — read and validate the YAML schema (cluster, hosts, vpn, storage, apps, auto_update, secrets sections) in `iac/cli/config/config.go`
+- [X] T017 [P] [US5] Implement Ansible inventory generator — read `homelab.yml` hosts section and output `hosts.yml` + `group_vars/` into `.generated/ansible/inventory/` in `iac/cli/generators/ansible.go`
+- [X] T018 [P] [US5] Implement Terraform tfvars generator — read `homelab.yml` and output `terraform.tfvars` into `.generated/terraform/` in `iac/cli/generators/terraform.go`
+- [X] T019 [P] [US5] Implement Nomad HCL job file generator — read `homelab.yml` apps section and template Nomad job files into `.generated/nomad/` in `iac/cli/generators/nomad.go`
+- [X] T020 [P] [US5] Create Nomad job templates (Go templates) for media apps in `iac/templates/nomad-app.hcl.tmpl`
+- [X] T021 [P] [US5] Create Nomad job template for reverse proxy in `iac/templates/nomad-proxy.hcl.tmpl`
+- [X] T022 [P] [US5] Create Nomad job template for auto-updater batch job in `iac/templates/nomad-updater.hcl.tmpl`
+- [X] T023 [US5] Implement `iac` CLI main entrypoint with subcommand routing (provision, deploy, generate, status, update) in `iac/cli/main.go`
+- [X] T024 [US5] Implement `iac provision host` subcommand — runs config generation then orchestrates Terraform apply + Ansible playbook in `iac/cli/cmd/provision.go`
+- [X] T025 [US5] Implement `iac status` subcommand — queries Nomad API, WireGuard status, host health and displays formatted output in `iac/cli/cmd/status.go`
+- [X] T026 [US5] Implement config validation — verify `homelab.yml` schema, required fields, valid IP ranges, no duplicate host names in `iac/cli/config/validate.go`
+- [X] T027 [US5] Build and test the `iac` binary — `go build` in `iac/cli/`, verify `iac provision host` generates correct configs in `.generated/` from a test `homelab.yml`
 
 **Checkpoint**: Engineer can edit `homelab.yml`, run `iac provision host --name <host>`, and have all tool-specific configs auto-generated and the provisioning playbook executed. No manual editing of Ansible inventory, Terraform tfvars, or Nomad HCL files.
 
@@ -87,12 +87,12 @@
 
 ### Implementation
 
-- [ ] T028 [US1] Create Ansible role for WireGuard server deployment (kernel module, key generation, wg0 interface, systemd service, iptables forwarding rules) in `iac/ansible/roles/wireguard/`
-- [ ] T029 [US1] Create Ansible playbook for VPN deployment that applies the WireGuard role in `iac/ansible/playbooks/deploy-vpn.yml`
-- [ ] T030 [US1] Implement `iac deploy vpn` subcommand — reads VPN config from `homelab.yml`, runs config generation, executes Ansible playbook in `iac/cli/cmd/deploy_vpn.go`
-- [ ] T031 [US1] Implement `iac generate vpn-client` subcommand — generates client key pair, assigns VPN IP, creates client config file, generates QR code, adds peer to server config in `iac/cli/cmd/generate_vpn_client.go`
-- [ ] T032 [P] [US1] Implement WireGuard peer management utilities (add peer, remove peer, list peers) in `iac/cli/wireguard/peers.go`
-- [ ] T033 [P] [US1] Create Ansible task for optional ddclient (dynamic DNS) deployment within the WireGuard role in `iac/ansible/roles/wireguard/tasks/ddns.yml`
+- [X] T028 [US1] Create Ansible role for WireGuard server deployment (kernel module, key generation, wg0 interface, systemd service, iptables forwarding rules) in `iac/ansible/roles/wireguard/`
+- [X] T029 [US1] Create Ansible playbook for VPN deployment that applies the WireGuard role in `iac/ansible/playbooks/deploy-vpn.yml`
+- [X] T030 [US1] Implement `iac deploy vpn` subcommand — reads VPN config from `homelab.yml`, runs config generation, executes Ansible playbook in `iac/cli/cmd/deploy_vpn.go`
+- [X] T031 [US1] Implement `iac generate vpn-client` subcommand — generates client key pair, assigns VPN IP, creates client config file, generates QR code, adds peer to server config in `iac/cli/cmd/generate_vpn_client.go`
+- [X] T032 [P] [US1] Implement WireGuard peer management utilities (add peer, remove peer, list peers) in `iac/cli/wireguard/peers.go`
+- [X] T033 [P] [US1] Create Ansible task for optional ddclient (dynamic DNS) deployment within the WireGuard role in `iac/ansible/roles/wireguard/tasks/ddns.yml`
 
 **Checkpoint**: Engineer runs `iac deploy vpn --host homelab-host-01`, then `iac generate vpn-client --name danny-laptop`. Remote engineer imports the config into WireGuard client and can access all home LAN resources.
 
@@ -108,15 +108,15 @@
 
 ### Implementation
 
-- [ ] T034 [US2] Create Nomad job HCL for reverse proxy (Traefik or Caddy) with TLS termination, rate limiting, and dynamic routing in `iac/nomad/jobs/proxy.hcl`
-- [ ] T035 [US2] Implement `iac deploy proxy` subcommand — submits reverse proxy Nomad job, configures host iptables port forwarding (443 → VM proxy) in `iac/cli/cmd/deploy_proxy.go`
-- [ ] T036 [P] [US2] Create Nomad job HCL for Plex with read-only root, writable /config /media volumes, port 32400 mapping in `iac/nomad/jobs/plex.hcl`
-- [ ] T037 [P] [US2] Create Nomad job HCL for Sonarr with read-only root, writable /config /downloads /media volumes, port 8989 mapping in `iac/nomad/jobs/sonarr.hcl`
-- [ ] T038 [P] [US2] Create Nomad job HCL for Radarr with read-only root, writable /config /downloads /media volumes, port 7878 mapping in `iac/nomad/jobs/radarr.hcl`
-- [ ] T039 [P] [US2] Create Nomad job HCL for Bazarr with read-only root, writable /config /downloads /media volumes, port 6767 mapping in `iac/nomad/jobs/bazarr.hcl`
-- [ ] T040 [US2] Implement `iac deploy app` subcommand — reads app config from `homelab.yml`, generates Nomad HCL from template, submits job to Nomad cluster in `iac/cli/cmd/deploy_app.go`
-- [ ] T041 [US2] Configure storage passthrough: Ansible tasks to create host mount points, libvirt storage pool for VM passthrough, Docker volume mounts in Nomad jobs in `iac/ansible/roles/vm-guest/tasks/storage.yml`
-- [ ] T042 [US2] Configure reverse proxy routes for each media app (path-based routing: /plex, /sonarr, /radarr, /bazarr) in reverse proxy config within `iac/nomad/jobs/proxy.hcl`
+- [X] T034 [US2] Create Nomad job HCL for reverse proxy (Traefik or Caddy) with TLS termination, rate limiting, and dynamic routing in `iac/nomad/jobs/proxy.hcl`
+- [X] T035 [US2] Implement `iac deploy proxy` subcommand — submits reverse proxy Nomad job, configures host iptables port forwarding (443 → VM proxy) in `iac/cli/cmd/deploy_proxy.go`
+- [X] T036 [P] [US2] Create Nomad job HCL for Plex with read-only root, writable /config /media volumes, port 32400 mapping in `iac/nomad/jobs/plex.hcl`
+- [X] T037 [P] [US2] Create Nomad job HCL for Sonarr with read-only root, writable /config /downloads /media volumes, port 8989 mapping in `iac/nomad/jobs/sonarr.hcl`
+- [X] T038 [P] [US2] Create Nomad job HCL for Radarr with read-only root, writable /config /downloads /media volumes, port 7878 mapping in `iac/nomad/jobs/radarr.hcl`
+- [X] T039 [P] [US2] Create Nomad job HCL for Bazarr with read-only root, writable /config /downloads /media volumes, port 6767 mapping in `iac/nomad/jobs/bazarr.hcl`
+- [X] T040 [US2] Implement `iac deploy app` subcommand — reads app config from `homelab.yml`, generates Nomad HCL from template, submits job to Nomad cluster in `iac/cli/cmd/deploy_app.go`
+- [X] T041 [US2] Configure storage passthrough: Ansible tasks to create host mount points, libvirt storage pool for VM passthrough, Docker volume mounts in Nomad jobs in `iac/ansible/roles/vm-guest/tasks/storage.yml`
+- [X] T042 [US2] Configure reverse proxy routes for each media app (path-based routing: /plex, /sonarr, /radarr, /bazarr) in reverse proxy config within `iac/nomad/jobs/proxy.hcl`
 
 **Checkpoint**: Engineer runs `iac deploy proxy` then `iac deploy app --name plex` (and sonarr/radarr/bazarr). All four media app web UIs are accessible from the LAN via their respective ports and via reverse proxy paths.
 
@@ -132,12 +132,12 @@
 
 ### Implementation
 
-- [ ] T043 [US3] Harden iptables egress rules — verify and tighten rules to deny all VM-to-LAN traffic except explicitly allowed (internet, DNS, NTP) in `iac/ansible/roles/nat-network/tasks/egress.yml`
-- [ ] T044 [P] [US3] Harden reverse proxy — enforce TLS-only, add security headers (HSTS, X-Frame-Options, CSP), configure rate limiting in `iac/nomad/jobs/proxy.hcl`
-- [ ] T045 [P] [US3] Verify all Nomad job HCL files use `readonly_rootfs = true` and explicit writable volume mounts only for required paths (/config, /downloads, /media) — audit `iac/nomad/jobs/*.hcl`
-- [ ] T046 [P] [US3] Verify all containers and services run as non-root users — add `user` directive to Nomad job HCL task configs in `iac/nomad/jobs/*.hcl`
-- [ ] T047 [US3] Create security audit playbook that checks: UFW status, SSH config, iptables rules, container read-only status, user privileges, open ports, egress connectivity from VM in `iac/ansible/playbooks/security-audit.yml`
-- [ ] T048 [US3] Implement `iac audit security` subcommand — runs the security audit playbook and reports pass/fail for each check in `iac/cli/cmd/audit.go`
+- [X] T043 [US3] Harden iptables egress rules — verify and tighten rules to deny all VM-to-LAN traffic except explicitly allowed (internet, DNS, NTP) in `iac/ansible/roles/nat-network/tasks/egress.yml`
+- [X] T044 [P] [US3] Harden reverse proxy — enforce TLS-only, add security headers (HSTS, X-Frame-Options, CSP), configure rate limiting in `iac/nomad/jobs/proxy.hcl`
+- [X] T045 [P] [US3] Verify all Nomad job HCL files use `readonly_rootfs = true` and explicit writable volume mounts only for required paths (/config, /downloads, /media) — audit `iac/nomad/jobs/*.hcl`
+- [X] T046 [P] [US3] Verify all containers and services run as non-root users — add `user` directive to Nomad job HCL task configs in `iac/nomad/jobs/*.hcl`
+- [X] T047 [US3] Create security audit playbook that checks: UFW status, SSH config, iptables rules, container read-only status, user privileges, open ports, egress connectivity from VM in `iac/ansible/playbooks/security-audit.yml`
+- [X] T048 [US3] Implement `iac audit security` subcommand — runs the security audit playbook and reports pass/fail for each check in `iac/cli/cmd/audit.go`
 
 **Checkpoint**: Running `iac audit security` produces a report showing all defense-in-depth layers are correctly configured. VMs cannot reach LAN devices, containers are read-only, all services run non-root, firewall rules are tight.
 
@@ -153,12 +153,12 @@
 
 ### Implementation
 
-- [ ] T049 [US4] Add Nomad `update` stanza with `auto_revert = true`, health checks (HTTP on web UI port), and configurable timeout to all media app job templates in `iac/templates/nomad-app.hcl.tmpl`
-- [ ] T050 [US4] Create Nomad periodic batch job for auto-updater — pulls latest images, compares digests, triggers `nomad job run` for apps with new images in `iac/nomad/jobs/auto-updater.hcl`
-- [ ] T051 [US4] Implement the auto-updater logic as a Go script or shell script invoked by the Nomad batch job — Docker image digest comparison, Nomad API calls for redeployment in `iac/cli/updater/updater.go`
-- [ ] T052 [US4] Implement `iac update status` subcommand — show auto-update status for all apps (current digest, last check, last result) in `iac/cli/cmd/update_status.go`
-- [ ] T053 [P] [US4] Implement `iac update trigger --name <app>` subcommand — manually trigger an update check for a specific app in `iac/cli/cmd/update_trigger.go`
-- [ ] T054 [P] [US4] Implement `iac update enable/disable --name <app>` subcommands — toggle auto-updates per app in `iac/cli/cmd/update_toggle.go`
+- [X] T049 [US4] Add Nomad `update` stanza with `auto_revert = true`, health checks (HTTP on web UI port), and configurable timeout to all media app job templates in `iac/templates/nomad-app.hcl.tmpl`
+- [X] T050 [US4] Create Nomad periodic batch job for auto-updater — pulls latest images, compares digests, triggers `nomad job run` for apps with new images in `iac/nomad/jobs/auto-updater.hcl`
+- [X] T051 [US4] Implement the auto-updater logic as a Go script or shell script invoked by the Nomad batch job — Docker image digest comparison, Nomad API calls for redeployment in `iac/cli/updater/updater.go`
+- [X] T052 [US4] Implement `iac update status` subcommand — show auto-update status for all apps (current digest, last check, last result) in `iac/cli/cmd/update_status.go`
+- [X] T053 [P] [US4] Implement `iac update trigger --name <app>` subcommand — manually trigger an update check for a specific app in `iac/cli/cmd/update_trigger.go`
+- [X] T054 [P] [US4] Implement `iac update enable/disable --name <app>` subcommands — toggle auto-updates per app in `iac/cli/cmd/update_toggle.go`
 
 **Checkpoint**: Auto-updater runs on schedule (configurable in homelab.yml). When a new image is available, Nomad deploys it with health checks. If the new version fails, Nomad reverts automatically. `iac update status` shows current state.
 
@@ -168,11 +168,11 @@
 
 **Purpose**: End-to-end validation, documentation, and cleanup
 
-- [ ] T055 Implement `iac teardown` subcommand — runs `terraform destroy` to cleanly remove all VMs and Nomad jobs in `iac/cli/cmd/teardown.go`
-- [ ] T056 [P] Add `homelab.yml` schema validation with helpful error messages for common mistakes (missing required fields, invalid IP format, duplicate host names) in `iac/cli/config/validate.go`
-- [ ] T057 [P] Create end-to-end deployment test script — provisions hosts, deploys VPN, deploys media stack, runs security audit, verifies all services accessible in `tests/integration/e2e_deploy.sh`
-- [ ] T058 Validate quickstart.md — follow the guide from scratch on a test environment and verify all steps work as documented
-- [ ] T059 [P] Add `iac` CLI help text and usage documentation for all subcommands in `iac/cli/cmd/*.go`
+- [X] T055 Implement `iac teardown` subcommand — runs `terraform destroy` to cleanly remove all VMs and Nomad jobs in `iac/cli/cmd/teardown.go`
+- [X] T056 [P] Add `homelab.yml` schema validation with helpful error messages for common mistakes (missing required fields, invalid IP format, duplicate host names) in `iac/cli/config/validate.go`
+- [X] T057 [P] Create end-to-end deployment test script — provisions hosts, deploys VPN, deploys media stack, runs security audit, verifies all services accessible in `tests/integration/e2e_deploy.sh`
+- [X] T058 Validate quickstart.md — follow the guide from scratch on a test environment and verify all steps work as documented
+- [X] T059 [P] Add `iac` CLI help text and usage documentation for all subcommands in `iac/cli/cmd/*.go`
 
 ---
 

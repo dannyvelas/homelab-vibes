@@ -10,21 +10,13 @@ func Update(args []string) error {
 
 	switch args[0] {
 	case "status":
-		// TODO: Implement in Phase 7 (T052)
-		fmt.Println("Auto-update status: (not yet implemented — see Phase 7: US4)")
-		return nil
+		return updateStatus(args[1:])
 	case "trigger":
-		// TODO: Implement in Phase 7 (T053)
-		fmt.Println("Manual update trigger: (not yet implemented — see Phase 7: US4)")
-		return nil
+		return updateTrigger(args[1:])
 	case "enable":
-		// TODO: Implement in Phase 7 (T054)
-		fmt.Println("Enable auto-updates: (not yet implemented — see Phase 7: US4)")
-		return nil
+		return updateEnable(args[1:])
 	case "disable":
-		// TODO: Implement in Phase 7 (T054)
-		fmt.Println("Disable auto-updates: (not yet implemented — see Phase 7: US4)")
-		return nil
+		return updateDisable(args[1:])
 	default:
 		return fmt.Errorf("unknown update subcommand: %s", args[0])
 	}

@@ -1,0 +1,11 @@
+---
+# WireGuard handlers
+
+- name: restart wireguard
+  ansible.builtin.systemd:
+    name: "wg-quick@{{ wireguard_interface }}"
+    state: restarted
+
+- name: save iptables
+  ansible.builtin.command: netfilter-persistent save
+  changed_when: true

@@ -1,0 +1,41 @@
+---
+# WireGuard role defaults
+
+# WireGuard package
+wireguard_package: wireguard
+
+# Interface name
+wireguard_interface: wg0
+
+# Configuration directory
+wireguard_config_dir: /etc/wireguard
+
+# Server key directory
+wireguard_key_dir: /etc/wireguard/keys
+
+# VPN subnet (CIDR)
+wireguard_subnet: "10.0.0.0/24"
+
+# Server VPN IP (first usable address in subnet)
+wireguard_server_ip: "10.0.0.1"
+
+# Listen port
+wireguard_port: 51820
+
+# Public endpoint (FQDN or IP)
+wireguard_endpoint: ""
+
+# LAN routes to advertise to VPN clients
+wireguard_lan_routes: []
+
+# Enable IP forwarding
+wireguard_ip_forwarding: true
+
+# iptables rules for VPN traffic
+wireguard_iptables_rules: true
+
+# Network interface for NAT masquerade (auto-detected if empty)
+wireguard_nat_interface: ""
+
+# Enable on boot
+wireguard_enable_on_boot: true

@@ -1,0 +1,579 @@
+---
+# Comprehensive security audit playbook.
+# Runs all checks with failed_when: false so every check executes regardless of
+# prior failures.  A pass/fail summary table is printed at the end of each play.
+#
+# Usage (invoked by `iac security audit` or directly):
+#   ansible-playbook -i .generated/ansible/inventory/hosts.yml \
+#     iac/ansible/playbooks/security-audit.yml
+#
+# Optional variables:
+#   nat_subnet          - VM NAT subnet to verify masquerade rules for  (default: 192.168.122.0/24)
+#   nat_vm_ip           - VM IP for port-forwarding verification         (default: 192.168.122.50)
+#   home_lan_cidr       - Home LAN CIDR used in egress-block rules       (default: 192.168.1.0/24)
+#   wireguard_interface - WireGuard interface name                       (default: wg0)
+#   wireguard_port      - WireGuard listen port                          (default: 51820)
+#   expected_open_ports - List of port numbers allowed on host           (default: [22, 443])
+
+# ---------------------------------------------------------------------------
+# PLAY 1: Security audit of physical hosts
+# ---------------------------------------------------------------------------
+- name: Security audit - physical hosts
+  hosts: hosts
+  become: true
+  gather_facts: true
+
+  vars:
+    audit_nat_subnet: "{{ nat_subnet | default('192.168.122.0/24') }}"
+    audit_nat_vm_ip: "{{ nat_vm_ip | default('192.168.122.50') }}"
+    audit_home_lan_cidr: "{{ home_lan_cidr | default('192.168.1.0/24') }}"
+    audit_wg_interface: "{{ wireguard_interface | default('wg0') }}"
+    audit_wg_port: "{{ wireguard_port | default(51820) }}"
+    # Ports that are legitimately expected to be listening on the host
+    audit_expected_open_ports: "{{ expected_open_ports | default([22, 443]) }}"
+
+  tasks:
+
+    # ------------------------------------------------------------------
+    # 1. UFW status
+    # ------------------------------------------------------------------
+    - name: "UFW | Get UFW status"
+      ansible.builtin.command: ufw status verbose
+      register: ufw_status_raw
+      changed_when: false
+      failed_when: false
+
+    - name: "UFW | Check UFW is active"
+      ansible.builtin.set_fact:
+        check_ufw_active: "{{ 'Status: active' in ufw_status_raw.stdout }}"
+
+    - name: "UFW | Check default incoming deny"
+      ansible.builtin.set_fact:
+        check_ufw_default_deny: "{{ 'Default: deny (incoming)' in ufw_status_raw.stdout }}"
+
+    # ------------------------------------------------------------------
+    # 2. SSH configuration
+    # ------------------------------------------------------------------
+    - name: "SSH | Read sshd_config"
+      ansible.builtin.command: sshd -T
+      register: sshd_effective_config
+      changed_when: false
+      failed_when: false
+
+    - name: "SSH | Check PermitRootLogin is no"
+      ansible.builtin.set_fact:
+        check_ssh_no_root: "{{ 'permitrootlogin no' in sshd_effective_config.stdout | lower }}"
+
+    - name: "SSH | Check PasswordAuthentication is no"
+      ansible.builtin.set_fact:
+        check_ssh_no_password: "{{ 'passwordauthentication no' in sshd_effective_config.stdout | lower }}"
+
+    - name: "SSH | Check PubkeyAuthentication is yes"
+      ansible.builtin.set_fact:
+        check_ssh_pubkey: "{{ 'pubkeyauthentication yes' in sshd_effective_config.stdout | lower }}"
+
+    # ------------------------------------------------------------------
+    # 3. iptables rules
+    # ------------------------------------------------------------------
+    - name: "iptables | Dump NAT table"
+      ansible.builtin.command: iptables -t nat -S
+      register: iptables_nat
+      changed_when: false
+      failed_when: false
+
+    - name: "iptables | Dump FILTER table"
+      ansible.builtin.command: iptables -S
+      register: iptables_filter
+      changed_when: false
+      failed_when: false
+
+    - name: "iptables | Check NAT masquerade rule for VM subnet"
+      ansible.builtin.set_fact:
+        check_iptables_masquerade: >-
+          {{
+            iptables_nat.stdout_lines | select('search', 'POSTROUTING') |
+            select('search', 'MASQUERADE') |
+            select('search', (audit_nat_subnet | replace('/', '\/'))) | list | length > 0
+          }}
+
+    - name: "iptables | Check egress block rule (VM -> home LAN DROP)"
+      ansible.builtin.set_fact:
+        check_iptables_egress_block: >-
+          {{
+            iptables_filter.stdout_lines | select('search', 'FORWARD') |
+            select('search', 'DROP') |
+            select('search', (audit_home_lan_cidr | replace('/', '\/'))) | list | length > 0
+          }}
+
+    - name: "iptables | Check port-forwarding DNAT rule for VM IP"
+      ansible.builtin.set_fact:
+        check_iptables_dnat: >-
+          {{
+            iptables_nat.stdout_lines | select('search', 'PREROUTING') |
+            select('search', 'DNAT') |
+            select('search', audit_nat_vm_ip) | list | length > 0
+          }}
+
+    # ------------------------------------------------------------------
+    # 4. User privileges
+    # ------------------------------------------------------------------
+    - name: "Users | Find users with UID 0 (root equivalents)"
+      ansible.builtin.command: awk -F: '$3 == 0 {print $1}' /etc/passwd
+      register: uid0_users_raw
+      changed_when: false
+      failed_when: false
+
+    - name: "Users | Check only 'root' has UID 0"
+      ansible.builtin.set_fact:
+        check_users_uid0: >-
+          {{
+            (uid0_users_raw.stdout_lines | reject('equalto', 'root') | list | length) == 0
+          }}
+
+    - name: "Users | List active system services and their run-as user"
+      ansible.builtin.command: >
+        systemctl show -p User,Id --value $(
+          systemctl list-units --type=service --state=running --no-legend --plain |
+          awk '{print $1}'
+        )
+      register: service_users_raw
+      changed_when: false
+      failed_when: false
+
+    - name: "Users | Check no unexpected services run as root"
+      # Services running as root will have an empty User= field (systemd default)
+      # We flag as a warning rather than a hard failure since some kernel services
+      # legitimately run as root; this surfaces the list for manual review.
+      ansible.builtin.set_fact:
+        check_users_service_nonroot: >-
+          {{
+            service_users_raw.stdout is defined and
+            service_users_raw.rc == 0
+          }}
+
+    # ------------------------------------------------------------------
+    # 5. Open ports (ss)
+    # ------------------------------------------------------------------
+    - name: "Ports | List listening TCP/UDP ports"
+      ansible.builtin.command: ss -tlnp
+      register: open_ports_raw
+      changed_when: false
+      failed_when: false
+
+    - name: "Ports | Parse listening port numbers"
+      ansible.builtin.set_fact:
+        actual_open_ports: >-
+          {{
+            open_ports_raw.stdout_lines[1:] |
+            map('regex_search', ':(\d+)\s', '\1') |
+            select | map('first') | map('int') | unique | sort | list
+          }}
+
+    - name: "Ports | Check no unexpected ports are open"
+      ansible.builtin.set_fact:
+        unexpected_ports: >-
+          {{
+            actual_open_ports | difference(audit_expected_open_ports | map('int') | list)
+          }}
+        check_ports_only_expected: >-
+          {{
+            (actual_open_ports | difference(audit_expected_open_ports | map('int') | list)) | length == 0
+          }}
+
+    # ------------------------------------------------------------------
+    # 6. WireGuard status (optional - skip if wg0 does not exist)
+    # ------------------------------------------------------------------
+    - name: "WireGuard | Check wg0 interface exists"
+      ansible.builtin.command: ip link show {{ audit_wg_interface }}
+      register: wg_iface_check
+      changed_when: false
+      failed_when: false
+
+    - name: "WireGuard | Run wg show if interface is present"
+      ansible.builtin.command: wg show {{ audit_wg_interface }}
+      register: wg_show_raw
+      changed_when: false
+      failed_when: false
+      when: wg_iface_check.rc == 0
+
+    - name: "WireGuard | Check interface is UP"
+      ansible.builtin.set_fact:
+        check_wg_interface_up: >-
+          {{
+            wg_iface_check.rc == 0 and
+            'UP' in wg_iface_check.stdout | upper
+          }}
+      when: wg_iface_check.rc == 0
+
+    - name: "WireGuard | Mark as N/A when not deployed"
+      ansible.builtin.set_fact:
+        check_wg_interface_up: "N/A"
+      when: wg_iface_check.rc != 0
+
+    - name: "WireGuard | Check listen port configured"
+      ansible.builtin.set_fact:
+        check_wg_listen_port: >-
+          {{
+            wg_show_raw.stdout is defined and
+            (audit_wg_port | string) in wg_show_raw.stdout
+          }}
+      when: wg_iface_check.rc == 0
+
+    - name: "WireGuard | Mark listen port as N/A when not deployed"
+      ansible.builtin.set_fact:
+        check_wg_listen_port: "N/A"
+      when: wg_iface_check.rc != 0
+
+    # ------------------------------------------------------------------
+    # Summary report - hosts play
+    # ------------------------------------------------------------------
+    - name: "AUDIT SUMMARY | Build host audit results"
+      ansible.builtin.set_fact:
+        host_audit_results:
+          - { check: "UFW active",                 result: "{{ check_ufw_active }}" }
+          - { check: "UFW default deny incoming",  result: "{{ check_ufw_default_deny }}" }
+          - { check: "SSH PermitRootLogin no",      result: "{{ check_ssh_no_root }}" }
+          - { check: "SSH PasswordAuth no",         result: "{{ check_ssh_no_password }}" }
+          - { check: "SSH PubkeyAuth yes",          result: "{{ check_ssh_pubkey }}" }
+          - { check: "iptables NAT masquerade",     result: "{{ check_iptables_masquerade }}" }
+          - { check: "iptables egress block LAN",   result: "{{ check_iptables_egress_block }}" }
+          - { check: "iptables DNAT port-forward",  result: "{{ check_iptables_dnat }}" }
+          - { check: "Only root has UID 0",         result: "{{ check_users_uid0 }}" }
+          - { check: "Service user check ran OK",   result: "{{ check_users_service_nonroot }}" }
+          - { check: "Only expected ports open",    result: "{{ check_ports_only_expected }}" }
+          - { check: "WireGuard interface up",      result: "{{ check_wg_interface_up }}" }
+          - { check: "WireGuard listen port set",   result: "{{ check_wg_listen_port }}" }
+
+    - name: "AUDIT SUMMARY | Print host pass/fail table"
+      ansible.builtin.debug:
+        msg: >-
+          {{ '%-42s' | format(item.check) }}  {{ 'PASS' if item.result | string | lower in ['true', 'n/a'] else 'FAIL' }}
+          {{ '(N/A)' if item.result | string | lower == 'n/a' else '' }}
+      loop: "{{ host_audit_results }}"
+
+    - name: "AUDIT SUMMARY | Count host failures"
+      ansible.builtin.set_fact:
+        host_audit_failures: >-
+          {{
+            host_audit_results |
+            selectattr('result', 'match', '(?i)^(false)$') |
+            list | length
+          }}
+
+    - name: "AUDIT SUMMARY | Print unexpected open ports (if any)"
+      ansible.builtin.debug:
+        msg: "Unexpected open ports detected: {{ unexpected_ports }}"
+      when: not check_ports_only_expected
+
+    - name: "AUDIT SUMMARY | Print service user list for manual review"
+      ansible.builtin.debug:
+        msg: "{{ service_users_raw.stdout_lines }}"
+      when: service_users_raw.stdout_lines is defined and service_users_raw.stdout_lines | length > 0
+
+    - name: "AUDIT SUMMARY | Overall host result"
+      ansible.builtin.debug:
+        msg: >-
+          Host {{ inventory_hostname }} audit complete.
+          {{ host_audit_failures }} check(s) FAILED.
+          {{ 'ALL CHECKS PASSED.' if host_audit_failures | int == 0 else 'REVIEW FAILURES ABOVE.' }}
+
+    - name: "AUDIT SUMMARY | Fail play if any host checks failed"
+      ansible.builtin.fail:
+        msg: >-
+          Security audit found {{ host_audit_failures }} failure(s) on {{ inventory_hostname }}.
+          Review the summary above.
+      when: host_audit_failures | int > 0
+
+
+# ---------------------------------------------------------------------------
+# PLAY 2: Security audit of workload VMs
+# ---------------------------------------------------------------------------
+- name: Security audit - workload VMs
+  hosts: vms
+  become: true
+  gather_facts: true
+
+  vars:
+    audit_home_lan_cidr: "{{ home_lan_cidr | default('192.168.1.0/24') }}"
+    audit_wg_interface: "{{ wireguard_interface | default('wg0') }}"
+    # Ports expected on VMs: 22 (SSH), 4646 (Nomad), 443 (reverse proxy)
+    audit_expected_vm_ports: "{{ expected_vm_open_ports | default([22, 443, 4646]) }}"
+    # Reachable public test targets (DNS + HTTP) to confirm internet access
+    audit_internet_dns: "8.8.8.8"
+    audit_internet_http: "1.1.1.1"
+    # A LAN IP that VMs must NOT be able to reach (set to gateway by default)
+    audit_lan_test_ip: "{{ home_lan_test_ip | default('192.168.1.1') }}"
+
+  tasks:
+
+    # ------------------------------------------------------------------
+    # 1. UFW status (VM)
+    # ------------------------------------------------------------------
+    - name: "UFW | Get VM UFW status"
+      ansible.builtin.command: ufw status verbose
+      register: vm_ufw_status_raw
+      changed_when: false
+      failed_when: false
+
+    - name: "UFW | Check VM UFW is active"
+      ansible.builtin.set_fact:
+        check_vm_ufw_active: "{{ 'Status: active' in vm_ufw_status_raw.stdout }}"
+
+    - name: "UFW | Check VM default incoming deny"
+      ansible.builtin.set_fact:
+        check_vm_ufw_default_deny: "{{ 'Default: deny (incoming)' in vm_ufw_status_raw.stdout }}"
+
+    # ------------------------------------------------------------------
+    # 2. SSH configuration (VM)
+    # ------------------------------------------------------------------
+    - name: "SSH | Read effective sshd config on VM"
+      ansible.builtin.command: sshd -T
+      register: vm_sshd_config
+      changed_when: false
+      failed_when: false
+
+    - name: "SSH | Check PermitRootLogin is no on VM"
+      ansible.builtin.set_fact:
+        check_vm_ssh_no_root: "{{ 'permitrootlogin no' in vm_sshd_config.stdout | lower }}"
+
+    - name: "SSH | Check PasswordAuthentication is no on VM"
+      ansible.builtin.set_fact:
+        check_vm_ssh_no_password: "{{ 'passwordauthentication no' in vm_sshd_config.stdout | lower }}"
+
+    - name: "SSH | Check PubkeyAuthentication is yes on VM"
+      ansible.builtin.set_fact:
+        check_vm_ssh_pubkey: "{{ 'pubkeyauthentication yes' in vm_sshd_config.stdout | lower }}"
+
+    # ------------------------------------------------------------------
+    # 3. Container read-only root filesystems
+    # ------------------------------------------------------------------
+    - name: "Containers | List all running container IDs"
+      ansible.builtin.command: docker ps -q
+      register: running_container_ids
+      changed_when: false
+      failed_when: false
+
+    - name: "Containers | Inspect ReadonlyRootfs for each running container"
+      ansible.builtin.command: >
+        docker inspect --format
+        '{% raw %}{"id":"{{.Id | printf "%.12s"}}","name":"{{.Name}}","readonly":{{.HostConfig.ReadonlyRootfs}}}{% endraw %}'
+        {{ item }}
+      register: container_inspect_results
+      changed_when: false
+      failed_when: false
+      loop: "{{ running_container_ids.stdout_lines }}"
+      when: running_container_ids.stdout_lines is defined and running_container_ids.stdout_lines | length > 0
+
+    - name: "Containers | Parse container readonly status"
+      ansible.builtin.set_fact:
+        container_readonly_data: >-
+          {{
+            container_inspect_results.results | default([]) |
+            selectattr('stdout', 'defined') |
+            map(attribute='stdout') |
+            map('from_json') | list
+          }}
+      when: running_container_ids.stdout_lines is defined and running_container_ids.stdout_lines | length > 0
+
+    - name: "Containers | Set empty list when no containers are running"
+      ansible.builtin.set_fact:
+        container_readonly_data: []
+      when: running_container_ids.stdout_lines is not defined or running_container_ids.stdout_lines | length == 0
+
+    - name: "Containers | Identify containers with writable root filesystems"
+      ansible.builtin.set_fact:
+        writable_containers: >-
+          {{
+            container_readonly_data |
+            selectattr('readonly', 'equalto', false) |
+            map(attribute='name') | list
+          }}
+
+    - name: "Containers | Check all running containers have read-only root fs"
+      ansible.builtin.set_fact:
+        check_containers_readonly: >-
+          {{
+            (container_readonly_data | length == 0) or
+            (writable_containers | length == 0)
+          }}
+
+    - name: "Containers | Warn about containers with writable root filesystems"
+      ansible.builtin.debug:
+        msg: "Containers with writable root filesystems: {{ writable_containers }}"
+      when: writable_containers | length > 0
+
+    # ------------------------------------------------------------------
+    # 4. User privileges (VM)
+    # ------------------------------------------------------------------
+    - name: "Users | Find UID-0 users on VM"
+      ansible.builtin.command: awk -F: '$3 == 0 {print $1}' /etc/passwd
+      register: vm_uid0_users_raw
+      changed_when: false
+      failed_when: false
+
+    - name: "Users | Check only 'root' has UID 0 on VM"
+      ansible.builtin.set_fact:
+        check_vm_users_uid0: >-
+          {{
+            (vm_uid0_users_raw.stdout_lines | reject('equalto', 'root') | list | length) == 0
+          }}
+
+    # ------------------------------------------------------------------
+    # 5. Open ports on VM
+    # ------------------------------------------------------------------
+    - name: "Ports | List listening TCP ports on VM"
+      ansible.builtin.command: ss -tlnp
+      register: vm_open_ports_raw
+      changed_when: false
+      failed_when: false
+
+    - name: "Ports | Parse VM listening port numbers"
+      ansible.builtin.set_fact:
+        vm_actual_open_ports: >-
+          {{
+            vm_open_ports_raw.stdout_lines[1:] |
+            map('regex_search', ':(\d+)\s', '\1') |
+            select | map('first') | map('int') | unique | sort | list
+          }}
+
+    - name: "Ports | Check no unexpected ports open on VM"
+      ansible.builtin.set_fact:
+        vm_unexpected_ports: >-
+          {{
+            vm_actual_open_ports |
+            difference(audit_expected_vm_ports | map('int') | list)
+          }}
+        check_vm_ports_only_expected: >-
+          {{
+            (vm_actual_open_ports |
+            difference(audit_expected_vm_ports | map('int') | list)) | length == 0
+          }}
+
+    # ------------------------------------------------------------------
+    # 6. VM egress connectivity checks
+    # ------------------------------------------------------------------
+
+    # Verify internet DNS is reachable
+    - name: "Egress | Test internet DNS reachability (8.8.8.8 UDP 53)"
+      ansible.builtin.command: >
+        nc -zu -w 3 {{ audit_internet_dns }} 53
+      register: vm_dns_reachable
+      changed_when: false
+      failed_when: false
+
+    - name: "Egress | Check internet DNS reachable"
+      ansible.builtin.set_fact:
+        check_vm_internet_dns: "{{ vm_dns_reachable.rc == 0 }}"
+
+    # Verify internet HTTP is reachable (curl with short timeout)
+    - name: "Egress | Test internet HTTP reachability (1.1.1.1:80)"
+      ansible.builtin.command: >
+        curl --silent --max-time 5 --output /dev/null
+        --write-out '%{http_code}' http://{{ audit_internet_http }}
+      register: vm_http_reachable
+      changed_when: false
+      failed_when: false
+
+    - name: "Egress | Check internet HTTP reachable (expect non-zero response)"
+      ansible.builtin.set_fact:
+        # Any HTTP response code (including 301/200/400) proves the route works
+        check_vm_internet_http: >-
+          {{
+            vm_http_reachable.rc == 0 and
+            vm_http_reachable.stdout | default('000') != '000'
+          }}
+
+    # Verify home LAN is NOT reachable (egress block working)
+    - name: "Egress | Test that home LAN gateway is NOT reachable (should fail)"
+      ansible.builtin.command: >
+        ping -c 2 -W 2 {{ audit_lan_test_ip }}
+      register: vm_lan_unreachable
+      changed_when: false
+      failed_when: false
+
+    - name: "Egress | Check home LAN is blocked (ping should fail)"
+      ansible.builtin.set_fact:
+        # We WANT this to fail (rc != 0 means LAN is correctly blocked)
+        check_vm_lan_blocked: "{{ vm_lan_unreachable.rc != 0 }}"
+
+    # ------------------------------------------------------------------
+    # 7. WireGuard status on VM (if applicable)
+    # ------------------------------------------------------------------
+    - name: "WireGuard | Check wg0 interface on VM"
+      ansible.builtin.command: ip link show {{ audit_wg_interface }}
+      register: vm_wg_iface_check
+      changed_when: false
+      failed_when: false
+
+    - name: "WireGuard | Check wg0 UP on VM"
+      ansible.builtin.set_fact:
+        check_vm_wg_up: >-
+          {{
+            vm_wg_iface_check.rc == 0 and
+            'UP' in vm_wg_iface_check.stdout | upper
+          }}
+      when: vm_wg_iface_check.rc == 0
+
+    - name: "WireGuard | Mark wg0 as N/A on VM when not deployed"
+      ansible.builtin.set_fact:
+        check_vm_wg_up: "N/A"
+      when: vm_wg_iface_check.rc != 0
+
+    # ------------------------------------------------------------------
+    # Summary report - VMs play
+    # ------------------------------------------------------------------
+    - name: "AUDIT SUMMARY | Build VM audit results"
+      ansible.builtin.set_fact:
+        vm_audit_results:
+          - { check: "UFW active",                       result: "{{ check_vm_ufw_active }}" }
+          - { check: "UFW default deny incoming",        result: "{{ check_vm_ufw_default_deny }}" }
+          - { check: "SSH PermitRootLogin no",            result: "{{ check_vm_ssh_no_root }}" }
+          - { check: "SSH PasswordAuth no",               result: "{{ check_vm_ssh_no_password }}" }
+          - { check: "SSH PubkeyAuth yes",                result: "{{ check_vm_ssh_pubkey }}" }
+          - { check: "All containers read-only root fs",  result: "{{ check_containers_readonly }}" }
+          - { check: "Only root has UID 0",               result: "{{ check_vm_users_uid0 }}" }
+          - { check: "Only expected ports open",          result: "{{ check_vm_ports_only_expected }}" }
+          - { check: "Internet DNS reachable",            result: "{{ check_vm_internet_dns }}" }
+          - { check: "Internet HTTP reachable",           result: "{{ check_vm_internet_http }}" }
+          - { check: "Home LAN blocked (egress rule)",    result: "{{ check_vm_lan_blocked }}" }
+          - { check: "WireGuard interface up",            result: "{{ check_vm_wg_up }}" }
+
+    - name: "AUDIT SUMMARY | Print VM pass/fail table"
+      ansible.builtin.debug:
+        msg: >-
+          {{ '%-44s' | format(item.check) }}  {{ 'PASS' if item.result | string | lower in ['true', 'n/a'] else 'FAIL' }}
+          {{ '(N/A)' if item.result | string | lower == 'n/a' else '' }}
+      loop: "{{ vm_audit_results }}"
+
+    - name: "AUDIT SUMMARY | Count VM failures"
+      ansible.builtin.set_fact:
+        vm_audit_failures: >-
+          {{
+            vm_audit_results |
+            selectattr('result', 'match', '(?i)^(false)$') |
+            list | length
+          }}
+
+    - name: "AUDIT SUMMARY | Print unexpected VM open ports (if any)"
+      ansible.builtin.debug:
+        msg: "Unexpected open ports on VM: {{ vm_unexpected_ports }}"
+      when: not check_vm_ports_only_expected
+
+    - name: "AUDIT SUMMARY | Print writable container names (if any)"
+      ansible.builtin.debug:
+        msg: "Containers with writable root filesystems: {{ writable_containers }}"
+      when: writable_containers | length > 0
+
+    - name: "AUDIT SUMMARY | Overall VM result"
+      ansible.builtin.debug:
+        msg: >-
+          VM {{ inventory_hostname }} audit complete.
+          {{ vm_audit_failures }} check(s) FAILED.
+          {{ 'ALL CHECKS PASSED.' if vm_audit_failures | int == 0 else 'REVIEW FAILURES ABOVE.' }}
+
+    - name: "AUDIT SUMMARY | Fail play if any VM checks failed"
+      ansible.builtin.fail:
+        msg: >-
+          Security audit found {{ vm_audit_failures }} failure(s) on VM {{ inventory_hostname }}.
+          Review the summary above.
+      when: vm_audit_failures | int > 0

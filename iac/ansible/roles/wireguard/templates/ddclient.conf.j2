@@ -1,0 +1,13 @@
+# ddclient configuration for dynamic DNS
+# Managed by Ansible - do not edit directly
+
+daemon=300
+syslog=yes
+pid=/var/run/ddclient.pid
+use=web, web=checkip.dyndns.com/, web-skip='IP Address'
+
+protocol={{ wireguard_ddns_protocol | default('dyndns2') }}
+server={{ wireguard_ddns_server | default('members.dyndns.org') }}
+login={{ wireguard_ddns_login | default('') }}
+password={{ wireguard_ddns_password | default('') }}
+{{ wireguard_ddns_hostname | default('') }}

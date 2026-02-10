@@ -1,0 +1,183 @@
+---
+# WireGuard server deployment tasks
+
+- name: Install WireGuard
+  ansible.builtin.apt:
+    name: "{{ wireguard_package }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags:
+    - wireguard
+    - packages
+
+- name: Ensure WireGuard config directory exists
+  ansible.builtin.file:
+    path: "{{ wireguard_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  tags:
+    - wireguard
+    - config
+
+- name: Ensure WireGuard key directory exists
+  ansible.builtin.file:
+    path: "{{ wireguard_key_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  tags:
+    - wireguard
+    - keys
+
+- name: Check if server private key exists
+  ansible.builtin.stat:
+    path: "{{ wireguard_key_dir }}/server_private.key"
+  register: wg_server_key
+  tags:
+    - wireguard
+    - keys
+
+- name: Generate server private key
+  ansible.builtin.shell: wg genkey > {{ wireguard_key_dir }}/server_private.key
+  when: not wg_server_key.stat.exists
+  tags:
+    - wireguard
+    - keys
+
+- name: Set server private key permissions
+  ansible.builtin.file:
+    path: "{{ wireguard_key_dir }}/server_private.key"
+    owner: root
+    group: root
+    mode: "0600"
+  tags:
+    - wireguard
+    - keys
+
+- name: Generate server public key
+  ansible.builtin.shell: cat {{ wireguard_key_dir }}/server_private.key | wg pubkey > {{ wireguard_key_dir }}/server_public.key
+  when: not wg_server_key.stat.exists
+  tags:
+    - wireguard
+    - keys
+
+- name: Read server private key
+  ansible.builtin.slurp:
+    src: "{{ wireguard_key_dir }}/server_private.key"
+  register: wg_server_private_key
+  tags:
+    - wireguard
+    - config
+
+- name: Read server public key
+  ansible.builtin.slurp:
+    src: "{{ wireguard_key_dir }}/server_public.key"
+  register: wg_server_public_key
+  tags:
+    - wireguard
+    - config
+
+- name: Template WireGuard server configuration
+  ansible.builtin.template:
+    src: wg0.conf.j2
+    dest: "{{ wireguard_config_dir }}/{{ wireguard_interface }}.conf"
+    owner: root
+    group: root
+    mode: "0600"
+  notify: restart wireguard
+  tags:
+    - wireguard
+    - config
+
+- name: Enable IP forwarding (sysctl)
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_set: true
+    state: present
+    reload: true
+  when: wireguard_ip_forwarding
+  tags:
+    - wireguard
+    - network
+
+- name: Detect default network interface
+  ansible.builtin.shell: ip route show default | awk '{print $5}' | head -1
+  register: default_interface
+  changed_when: false
+  when: wireguard_nat_interface == ""
+  tags:
+    - wireguard
+    - network
+
+- name: Set NAT interface fact
+  ansible.builtin.set_fact:
+    wg_nat_interface: "{{ wireguard_nat_interface | default(default_interface.stdout, true) }}"
+  tags:
+    - wireguard
+    - network
+
+- name: Add iptables NAT masquerade for VPN traffic
+  ansible.builtin.iptables:
+    table: nat
+    chain: POSTROUTING
+    source: "{{ wireguard_subnet }}"
+    out_interface: "{{ wg_nat_interface }}"
+    jump: MASQUERADE
+  when: wireguard_iptables_rules
+  notify: save iptables
+  tags:
+    - wireguard
+    - firewall
+
+- name: Allow forwarding from WireGuard interface
+  ansible.builtin.iptables:
+    chain: FORWARD
+    in_interface: "{{ wireguard_interface }}"
+    jump: ACCEPT
+  when: wireguard_iptables_rules
+  notify: save iptables
+  tags:
+    - wireguard
+    - firewall
+
+- name: Allow forwarding to WireGuard interface (established)
+  ansible.builtin.iptables:
+    chain: FORWARD
+    out_interface: "{{ wireguard_interface }}"
+    ctstate: RELATED,ESTABLISHED
+    jump: ACCEPT
+  when: wireguard_iptables_rules
+  notify: save iptables
+  tags:
+    - wireguard
+    - firewall
+
+- name: Allow WireGuard UDP port through UFW
+  community.general.ufw:
+    rule: allow
+    port: "{{ wireguard_port }}"
+    proto: udp
+  tags:
+    - wireguard
+    - firewall
+
+- name: Enable and start WireGuard service
+  ansible.builtin.systemd:
+    name: "wg-quick@{{ wireguard_interface }}"
+    enabled: "{{ wireguard_enable_on_boot }}"
+    state: started
+  tags:
+    - wireguard
+    - service
+
+- name: Display server public key
+  ansible.builtin.debug:
+    msg: "WireGuard server public key: {{ wg_server_public_key.content | b64decode | trim }}"
+  tags:
+    - wireguard
+    - verify

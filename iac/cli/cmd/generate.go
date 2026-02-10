@@ -17,36 +17,12 @@ func Generate(args []string) error {
 
 	switch args[0] {
 	case "vpn-client":
-		return generateVPNClient(args[1:])
+		return generateVPNClientImpl(args[1:])
 	case "configs":
 		return generateConfigs(args[1:])
 	default:
 		return fmt.Errorf("unknown generate subcommand: %s", args[0])
 	}
-}
-
-func generateVPNClient(args []string) error {
-	fs := flag.NewFlagSet("generate vpn-client", flag.ExitOnError)
-	peerName := fs.String("name", "", "Name for the VPN client/peer")
-	configPath := fs.String("config", "homelab.yml", "Path to homelab.yml")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-
-	if *peerName == "" {
-		return fmt.Errorf("--name is required. Usage: iac generate vpn-client --name <peer_name>")
-	}
-
-	_, err := config.Load(*configPath)
-	if err != nil {
-		return fmt.Errorf("loading config: %w", err)
-	}
-
-	// TODO: Implement WireGuard client config generation (Phase 4)
-	fmt.Printf("Generating VPN client config for peer: %s\n", *peerName)
-	fmt.Println("  (Not yet implemented — see Phase 4: US1 VPN)")
-
-	return nil
 }
 
 func generateConfigs(args []string) error {

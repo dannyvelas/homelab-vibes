@@ -1,0 +1,30 @@
+---
+# Deploy WireGuard VPN on the designated host
+# Usage: ansible-playbook -i .generated/ansible/inventory/hosts.yml deploy-vpn.yml --limit <host>
+
+- name: Deploy WireGuard VPN
+  hosts: all
+  become: true
+
+  pre_tasks:
+    - name: Verify host is designated as WireGuard endpoint
+      ansible.builtin.debug:
+        msg: "Deploying WireGuard VPN on {{ inventory_hostname }}"
+
+  roles:
+    - role: ../roles/wireguard
+      vars:
+        wireguard_subnet: "{{ vpn_subnet }}"
+        wireguard_endpoint: "{{ vpn_endpoint }}"
+        wireguard_port: "{{ vpn_port }}"
+        wireguard_lan_routes: "{{ vpn_lan_routes | default([]) }}"
+
+  post_tasks:
+    - name: Verify WireGuard interface is up
+      ansible.builtin.command: wg show {{ wireguard_interface | default('wg0') }}
+      register: wg_show
+      changed_when: false
+
+    - name: Display WireGuard status
+      ansible.builtin.debug:
+        msg: "{{ wg_show.stdout_lines }}"

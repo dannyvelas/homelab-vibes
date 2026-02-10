@@ -1,0 +1,32 @@
+---
+# Optional: Dynamic DNS client deployment
+# Included conditionally when wireguard_ddns_enabled is true
+
+- name: Install ddclient
+  ansible.builtin.apt:
+    name: ddclient
+    state: present
+  tags:
+    - wireguard
+    - ddns
+
+- name: Template ddclient configuration
+  ansible.builtin.template:
+    src: ddclient.conf.j2
+    dest: /etc/ddclient.conf
+    owner: root
+    group: root
+    mode: "0600"
+  notify: restart ddclient
+  tags:
+    - wireguard
+    - ddns
+
+- name: Enable and start ddclient service
+  ansible.builtin.systemd:
+    name: ddclient
+    enabled: true
+    state: started
+  tags:
+    - wireguard
+    - ddns
