@@ -1,0 +1,21 @@
+#cloud-config
+hostname: {{ vm_name }}
+manage_etc_hosts: true
+
+users:
+  - name: {{ vm_cloud_init_user }}
+    groups: sudo
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - {{ vm_cloud_init_ssh_key }}
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - qemu-guest-agent
+
+runcmd:
+  - systemctl enable qemu-guest-agent
+  - systemctl start qemu-guest-agent

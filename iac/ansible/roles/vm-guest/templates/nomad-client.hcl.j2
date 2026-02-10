@@ -1,0 +1,24 @@
+datacenter = "{{ vm_guest_nomad_datacenter }}"
+data_dir   = "/opt/nomad/data"
+log_level  = "INFO"
+
+# VM runs as Nomad client only (server runs on the host)
+client {
+  enabled = true
+
+  servers = [
+{% for server in vm_guest_nomad_servers %}
+    "{{ server }}",
+{% endfor %}
+  ]
+}
+
+plugin "docker" {
+  config {
+    allow_privileged = false
+
+    volumes {
+      enabled = true
+    }
+  }
+}

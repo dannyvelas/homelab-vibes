@@ -34,21 +34,21 @@
 
 ### Host Provisioning Roles
 
-- [ ] T007 Create Ansible role for Debian OS hardening (UFW, SSH key-only, disable root login, auto-updates, least privilege users) in `iac/ansible/roles/hardening/`
-- [ ] T008 [P] Create Ansible role for KVM/libvirt hypervisor installation on Debian in `iac/ansible/roles/hypervisor/`
-- [ ] T009 [P] Create Ansible role for Nomad server+client installation on Debian host in `iac/ansible/roles/nomad/`
-- [ ] T010 Create Ansible role for NAT networking (Linux bridge, private subnet, iptables masquerade, egress blocking, port forwarding) in `iac/ansible/roles/nat-network/`
-- [ ] T011 Create Ansible role for workload VM creation via libvirt (Debian guest, resource allocation, cloud-init) in `iac/ansible/roles/vm-create/`
-- [ ] T012 Create Ansible role for VM guest setup (OS hardening, Nomad client, Docker engine installation) in `iac/ansible/roles/vm-guest/`
+- [X] T007 Create Ansible role for Debian OS hardening (UFW, SSH key-only, disable root login, auto-updates, least privilege users) in `iac/ansible/roles/hardening/`
+- [X] T008 [P] Create Ansible role for KVM/libvirt hypervisor installation on Debian in `iac/ansible/roles/hypervisor/`
+- [X] T009 [P] Create Ansible role for Nomad server+client installation on Debian host in `iac/ansible/roles/nomad/`
+- [X] T010 Create Ansible role for NAT networking (Linux bridge, private subnet, iptables masquerade, egress blocking, port forwarding) in `iac/ansible/roles/nat-network/`
+- [X] T011 Create Ansible role for workload VM creation via libvirt (Debian guest, resource allocation, cloud-init) in `iac/ansible/roles/vm-create/`
+- [X] T012 Create Ansible role for VM guest setup (OS hardening, Nomad client, Docker engine installation) in `iac/ansible/roles/vm-guest/`
 
 ### Terraform Infrastructure
 
-- [ ] T013 Create Terraform resource definitions for libvirt VMs (domain, volume, cloud-init) in `iac/terraform/vm.tf`
-- [ ] T014 [P] Create Terraform resource definitions for Nomad jobs (using `hashicorp/nomad` provider) in `iac/terraform/nomad-jobs.tf`
+- [X] T013 Create Terraform resource definitions for libvirt VMs (domain, volume, cloud-init) in `iac/terraform/vm.tf`
+- [X] T014 [P] Create Terraform resource definitions for Nomad jobs (using `hashicorp/nomad` provider) in `iac/terraform/nomad-jobs.tf`
 
 ### Host Provisioning Playbook
 
-- [ ] T015 Create Ansible playbook that orchestrates all host provisioning roles (hardening → hypervisor → Nomad → NAT network → VM creation → VM guest setup) in `iac/ansible/playbooks/provision-host.yml`
+- [X] T015 Create Ansible playbook that orchestrates all host provisioning roles (hardening → hypervisor → Nomad → NAT network → VM creation → VM guest setup) in `iac/ansible/playbooks/provision-host.yml`
 
 **Checkpoint**: Running the provisioning playbook against a Debian server should produce a hardened host with KVM, Nomad, NAT networking, and a workload VM with Docker and Nomad client.
 

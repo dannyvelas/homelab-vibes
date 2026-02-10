@@ -1,0 +1,116 @@
+---
+# VM guest setup: OS hardening, Docker engine, Nomad client.
+# This role runs INSIDE the VM (not on the host).
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+# --- VM OS hardening (subset of host hardening) ---
+
+- name: Install security packages in VM
+  ansible.builtin.apt:
+    name:
+      - ufw
+      - unattended-upgrades
+    state: present
+
+- name: Configure VM UFW - allow SSH
+  community.general.ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+
+- name: Configure VM UFW - allow Nomad
+  community.general.ufw:
+    rule: allow
+    port: "4646"
+    proto: tcp
+
+- name: Enable VM UFW
+  community.general.ufw:
+    state: enabled
+    default: deny
+    direction: incoming
+
+# --- Docker installation ---
+
+- name: Install Docker prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+
+- name: Add Docker GPG key
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/debian/gpg
+    state: present
+
+- name: Add Docker APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+    state: present
+
+- name: Install Docker Engine
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+    update_cache: true
+
+- name: Enable and start Docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+# --- Nomad client installation (inside VM) ---
+
+- name: Add HashiCorp GPG key
+  ansible.builtin.apt_key:
+    url: https://apt.releases.hashicorp.com/gpg
+    state: present
+
+- name: Add HashiCorp APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
+    state: present
+
+- name: Install Nomad
+  ansible.builtin.apt:
+    name: nomad
+    state: present
+    update_cache: true
+
+- name: Create Nomad data directory
+  ansible.builtin.file:
+    path: /opt/nomad/data
+    state: directory
+    owner: nomad
+    group: nomad
+    mode: "0755"
+
+- name: Configure Nomad client in VM
+  ansible.builtin.template:
+    src: nomad-client.hcl.j2
+    dest: /etc/nomad.d/nomad.hcl
+    mode: "0640"
+    owner: root
+    group: nomad
+  notify: Restart nomad in VM
+
+- name: Enable and start Nomad
+  ansible.builtin.systemd:
+    name: nomad
+    enabled: true
+    state: started
+
+# --- Storage mount points ---
+
+- name: Include storage passthrough tasks
+  ansible.builtin.include_tasks: storage.yml

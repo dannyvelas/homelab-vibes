@@ -1,0 +1,69 @@
+job "{{.AppName}}" {
+  datacenters = ["{{.Datacenter}}"]
+  type        = "service"
+
+  group "{{.AppName}}" {
+    count = 1
+
+    network {
+      port "http" {
+        static = {{.Port}}
+      }
+    }
+
+    task "{{.AppName}}" {
+      driver = "docker"
+
+      config {
+        image = "{{.Image}}"
+
+        readonly_rootfs = true
+
+        ports = ["http"]
+
+        volumes = [
+          "{{.ConfigPath}}:/config",
+          "{{.DownloadsPath}}:/downloads",
+          "{{.MediaPath}}:/media"
+        ]
+
+        mount {
+          type   = "tmpfs"
+          target = "/tmp"
+          tmpfs_options {
+            size = 100000000 # 100MB
+          }
+        }
+      }
+
+      resources {
+        {{- if eq .AppName "plex"}}
+        cpu    = 1000
+        memory = 1024
+        {{- else}}
+        cpu    = 500
+        memory = 512
+        {{- end}}
+      }
+
+      service {
+        name = "{{.AppName}}"
+        port = "http"
+
+        check {
+          type     = "http"
+          path     = "/"
+          interval = "30s"
+          timeout  = "5s"
+        }
+      }
+    }
+
+    update {
+      auto_revert      = true
+      health_check     = "checks"
+      min_healthy_time = "30s"
+      healthy_deadline = "{{.HealthCheckTimeout}}"
+    }
+  }
+}

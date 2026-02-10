@@ -1,0 +1,22 @@
+---
+# Storage passthrough: create mount points inside VM for media, downloads, config.
+# These directories are mounted from the host via libvirt filesystem passthrough
+# and then bind-mounted into Docker containers by Nomad jobs.
+
+- name: Create media mount point
+  ansible.builtin.file:
+    path: /mnt/media
+    state: directory
+    mode: "0755"
+
+- name: Create downloads mount point
+  ansible.builtin.file:
+    path: /mnt/downloads
+    state: directory
+    mode: "0755"
+
+- name: Create config mount point
+  ansible.builtin.file:
+    path: /mnt/config
+    state: directory
+    mode: "0755"

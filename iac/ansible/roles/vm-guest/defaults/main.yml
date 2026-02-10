@@ -1,0 +1,10 @@
+---
+# VM guest setup role defaults
+
+# Nomad client configuration inside VM
+vm_guest_nomad_datacenter: dc1
+vm_guest_nomad_servers:
+  - 192.168.122.1  # Host gateway IP (Nomad server runs on host)
+
+# Docker configuration
+vm_guest_docker_storage_driver: overlay2

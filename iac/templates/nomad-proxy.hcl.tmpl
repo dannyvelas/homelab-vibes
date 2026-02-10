@@ -1,0 +1,117 @@
+job "proxy" {
+  datacenters = ["{{.Datacenter}}"]
+  type        = "service"
+
+  group "traefik" {
+    count = 1
+
+    network {
+      port "http" {
+        static = 80
+      }
+
+      port "https" {
+        static = 443
+      }
+    }
+
+    task "traefik" {
+      driver = "docker"
+
+      config {
+        image = "traefik:v3.0"
+
+        ports = ["http", "https"]
+
+        volumes = [
+          "local/traefik.yml:/etc/traefik/traefik.yml",
+          "local/dynamic.yml:/etc/traefik/dynamic.yml",
+          "/var/run/docker.sock:/var/run/docker.sock:ro"
+        ]
+      }
+
+      template {
+        data = <<EOF
+api:
+  dashboard: true
+  insecure: true
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+  file:
+    filename: "/etc/traefik/dynamic.yml"
+    watch: true
+
+log:
+  level: INFO
+EOF
+
+        destination = "local/traefik.yml"
+      }
+
+      template {
+        data = <<EOF
+http:
+  routers:
+{{- range $name, $port := .Apps}}
+    {{$name}}:
+      rule: "PathPrefix(`/{{$name}}`)"
+      service: {{$name}}
+      entryPoints:
+        - websecure
+      middlewares:
+        - {{$name}}-stripprefix
+
+  middlewares:
+    {{$name}}-stripprefix:
+      stripPrefix:
+        prefixes:
+          - "/{{$name}}"
+{{- end}}
+
+  services:
+{{- range $name, $port := .Apps}}
+    {{$name}}:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:{{$port}}"
+{{- end}}
+EOF
+
+        destination = "local/dynamic.yml"
+      }
+
+      resources {
+        cpu    = 200
+        memory = 256
+      }
+
+      service {
+        name = "traefik"
+        port = "https"
+
+        check {
+          type     = "http"
+          port     = "http"
+          path     = "/ping"
+          interval = "30s"
+          timeout  = "5s"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+---
+# Host provisioning playbook.
+# Orchestrates: hardening -> hypervisor -> Nomad -> NAT network -> VM creation -> VM guest setup.
+#
+# Usage (invoked by `iac provision host`):
+#   ansible-playbook -i .generated/ansible/inventory/hosts.yml \
+#     iac/ansible/playbooks/provision-host.yml \
+#     --limit <host_name>
+
+- name: Provision physical host
+  hosts: hosts
+  become: true
+  gather_facts: true
+
+  roles:
+    # 1. OS hardening (UFW, SSH, auto-updates, least privilege)
+    - role: hardening
+      tags: [hardening]
+
+    # 2. KVM/libvirt hypervisor installation
+    - role: hypervisor
+      tags: [hypervisor]
+
+    # 3. Nomad server + client on host
+    - role: nomad
+      tags: [nomad]
+
+    # 4. NAT networking (bridge, iptables, egress blocking)
+    - role: nat-network
+      tags: [network]
+
+    # 5. Workload VM creation via libvirt
+    - role: vm-create
+      tags: [vm]
+
+- name: Configure workload VM
+  hosts: vms
+  become: true
+  gather_facts: true
+
+  roles:
+    # 6. VM guest setup (OS hardening, Docker, Nomad client)
+    - role: vm-guest
+      tags: [vm-guest]
