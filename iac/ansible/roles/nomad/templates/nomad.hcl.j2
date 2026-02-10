@@ -14,6 +14,12 @@ log_level = "{{ nomad_log_level }}"
 server {
   enabled = true
   bootstrap_expect = {{ nomad_server_bootstrap_expect }}
+{% if nomad_server_ips | length > 1 %}
+
+  server_join {
+    retry_join = [{% for ip in nomad_server_ips %}"{{ ip }}:4648"{% if not loop.last %}, {% endif %}{% endfor %}]
+  }
+{% endif %}
 }
 {% endif %}
 

@@ -16,7 +16,7 @@ func Teardown(args []string) error {
 		return err
 	}
 
-	_, err := config.Load(*configPath)
+	cfg, err := config.Load(*configPath)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
@@ -27,12 +27,18 @@ func Teardown(args []string) error {
 	}
 	tfDir := filepath.Join(repoRoot, "iac", "terraform")
 	generatedDir := filepath.Join(repoRoot, ".generated")
-	tfVarsFile := filepath.Join(generatedDir, "terraform", "terraform.tfvars")
 
 	fmt.Println("Tearing down all infrastructure...")
 
-	if err := runCommand(tfDir, "terraform", "destroy", "-auto-approve", "-var-file="+tfVarsFile); err != nil {
-		return fmt.Errorf("terraform destroy: %w", err)
+	for hostName := range cfg.Hosts {
+		fmt.Printf("  Destroying VMs on host: %s\n", hostName)
+		tfVarsFile := filepath.Join(generatedDir, "terraform", hostName, "terraform.tfvars")
+		tfStateFile := filepath.Join(generatedDir, "terraform", hostName, "terraform.tfstate")
+
+		if err := runCommand(tfDir, "terraform", "destroy", "-auto-approve",
+			"-var-file="+tfVarsFile, "-state="+tfStateFile); err != nil {
+			return fmt.Errorf("terraform destroy for %s: %w", hostName, err)
+		}
 	}
 
 	fmt.Println("\nAll VMs and Nomad jobs destroyed.")

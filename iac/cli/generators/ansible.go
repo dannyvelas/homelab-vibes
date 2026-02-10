@@ -106,6 +106,15 @@ func generateGroupVars(cfg *config.Config, outputDir string) error {
 	}
 	sb.WriteString("\n")
 
+	// Nomad cluster configuration
+	sb.WriteString("# Nomad Cluster Configuration\n")
+	sb.WriteString(fmt.Sprintf("nomad_server_bootstrap_expect: %d\n", len(cfg.Hosts)))
+	sb.WriteString("nomad_server_ips:\n")
+	for _, hostCfg := range cfg.Hosts {
+		sb.WriteString(fmt.Sprintf("  - %s\n", hostCfg.IP))
+	}
+	sb.WriteString("\n")
+
 	// Auto-update configuration
 	sb.WriteString("# Auto-Update Configuration\n")
 	sb.WriteString(fmt.Sprintf("auto_update_enabled: %t\n", cfg.AutoUpdate.Enabled))

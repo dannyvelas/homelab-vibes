@@ -9,26 +9,39 @@ import (
 	"github.com/homelab-vibe/iac/config"
 )
 
-// GenerateTerraformVars creates a terraform.tfvars file in HCL format.
+// GenerateTerraformVars creates per-host terraform.tfvars files.
+// Each host gets its own directory under outputDir/<hostname>/ with a
+// terraform.tfvars that points the libvirt provider at that specific host.
 func GenerateTerraformVars(cfg *config.Config, outputDir string) error {
-	// Create output directory
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return fmt.Errorf("creating output directory %s: %w", outputDir, err)
+	for hostName, hostCfg := range cfg.Hosts {
+		hostDir := filepath.Join(outputDir, hostName)
+		if err := os.MkdirAll(hostDir, 0755); err != nil {
+			return fmt.Errorf("creating output directory %s: %w", hostDir, err)
+		}
+
+		content := generateHostTfvars(cfg, hostName, hostCfg)
+
+		tfvarsPath := filepath.Join(hostDir, "terraform.tfvars")
+		if err := os.WriteFile(tfvarsPath, []byte(content), 0644); err != nil {
+			return fmt.Errorf("writing %s: %w", tfvarsPath, err)
+		}
 	}
 
-	var sb strings.Builder
+	return nil
+}
 
-	// Get first host for libvirt_uri and nomad_address
-	firstHostIP := getFirstHostIP(cfg)
+// generateHostTfvars builds the terraform.tfvars content for a single host.
+func generateHostTfvars(cfg *config.Config, hostName string, hostCfg config.HostConfig) string {
+	var sb strings.Builder
 
 	// Cluster configuration
 	sb.WriteString(fmt.Sprintf("cluster_name = %q\n", cfg.Cluster.Name))
 	sb.WriteString(fmt.Sprintf("datacenter = %q\n", cfg.Cluster.Datacenter))
 	sb.WriteString("\n")
 
-	// Libvirt and Nomad connection
-	sb.WriteString(fmt.Sprintf("libvirt_uri = \"qemu+ssh://%s@%s/system\"\n", cfg.Secrets.SSHUser, firstHostIP))
-	sb.WriteString(fmt.Sprintf("nomad_address = \"http://%s:4646\"\n", firstHostIP))
+	// Libvirt and Nomad connection — scoped to this host
+	sb.WriteString(fmt.Sprintf("libvirt_uri = \"qemu+ssh://%s@%s/system\"\n", cfg.Secrets.SSHUser, hostCfg.IP))
+	sb.WriteString(fmt.Sprintf("nomad_address = \"http://%s:4646\"\n", hostCfg.IP))
 	sb.WriteString("\n")
 
 	// SSH configuration
@@ -36,15 +49,13 @@ func GenerateTerraformVars(cfg *config.Config, outputDir string) error {
 	sb.WriteString(fmt.Sprintf("ssh_key_path = %q\n", cfg.Secrets.SSHKeyPath))
 	sb.WriteString("\n")
 
-	// Hosts map
+	// Hosts map — only this host
 	sb.WriteString("hosts = {\n")
-	for hostName, hostCfg := range cfg.Hosts {
-		sb.WriteString(fmt.Sprintf("  %q = {\n", hostName))
-		sb.WriteString(fmt.Sprintf("    ip = %q\n", hostCfg.IP))
-		sb.WriteString(fmt.Sprintf("    nat_subnet = %q\n", hostCfg.NATSubnet))
-		sb.WriteString(fmt.Sprintf("    wireguard_endpoint = %t\n", hostCfg.WireGuardEndpoint))
-		sb.WriteString("  }\n")
-	}
+	sb.WriteString(fmt.Sprintf("  %q = {\n", hostName))
+	sb.WriteString(fmt.Sprintf("    ip = %q\n", hostCfg.IP))
+	sb.WriteString(fmt.Sprintf("    nat_subnet = %q\n", hostCfg.NATSubnet))
+	sb.WriteString(fmt.Sprintf("    wireguard_endpoint = %t\n", hostCfg.WireGuardEndpoint))
+	sb.WriteString("  }\n")
 	sb.WriteString("}\n\n")
 
 	// VPN configuration
@@ -85,21 +96,5 @@ func GenerateTerraformVars(cfg *config.Config, outputDir string) error {
 	sb.WriteString(fmt.Sprintf("auto_update_auto_revert = %t\n", cfg.AutoUpdate.AutoRevert))
 	sb.WriteString(fmt.Sprintf("auto_update_health_check_timeout = %q\n", cfg.AutoUpdate.HealthCheckTimeout))
 
-	// Write to file
-	tfvarsPath := filepath.Join(outputDir, "terraform.tfvars")
-	if err := os.WriteFile(tfvarsPath, []byte(sb.String()), 0644); err != nil {
-		return fmt.Errorf("writing terraform.tfvars: %w", err)
-	}
-
-	return nil
-}
-
-// getFirstHostIP returns the IP of the first host in the map.
-// Map iteration order is random, but we need a consistent value,
-// so we could enhance this to sort by name first if needed.
-func getFirstHostIP(cfg *config.Config) string {
-	for _, hostCfg := range cfg.Hosts {
-		return hostCfg.IP
-	}
-	return ""
+	return sb.String()
 }

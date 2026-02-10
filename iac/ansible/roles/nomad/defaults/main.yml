@@ -18,6 +18,9 @@ nomad_region: global
 nomad_server_enabled: true
 nomad_server_bootstrap_expect: 1
 
+# List of all Nomad server IPs for cluster join (set via group_vars from generator)
+nomad_server_ips: []
+
 # Client configuration
 nomad_client_enabled: true
 

@@ -75,15 +75,17 @@ func provisionHost(args []string) error {
 
 	fmt.Println("  Configs generated into .generated/")
 
-	// Step 2: Run Terraform apply for VM lifecycle
+	// Step 2: Run Terraform apply for VM lifecycle (per-host)
 	fmt.Println("  [2/3] Running Terraform apply (VM lifecycle)...")
 	tfDir := filepath.Join(repoRoot, "iac", "terraform")
-	tfVarsFile := filepath.Join(generatedDir, "terraform", "terraform.tfvars")
+	tfVarsFile := filepath.Join(generatedDir, "terraform", *name, "terraform.tfvars")
+	tfStateFile := filepath.Join(generatedDir, "terraform", *name, "terraform.tfstate")
 
 	if err := runCommand(tfDir, "terraform", "init", "-input=false"); err != nil {
 		return fmt.Errorf("terraform init: %w", err)
 	}
-	if err := runCommand(tfDir, "terraform", "apply", "-auto-approve", "-var-file="+tfVarsFile); err != nil {
+	if err := runCommand(tfDir, "terraform", "apply", "-auto-approve",
+		"-var-file="+tfVarsFile, "-state="+tfStateFile); err != nil {
 		return fmt.Errorf("terraform apply: %w", err)
 	}
 
