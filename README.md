@@ -1,0 +1,293 @@
+# homelab-vibe
+
+Infrastructure as Code for a homelab media environment. A single Go CLI (`iac`) reads one config file (`homelab.yml`) and orchestrates Terraform, Ansible, and Nomad to provision servers, deploy a WireGuard VPN, and run Plex, Sonarr, Radarr, and Bazarr as isolated Docker containers inside KVM virtual machines.
+
+Designed to run on two 8GB RAM Debian 12 laptops today and migrate to proper bare-metal servers tomorrow — change the IPs in one file and re-run.
+
+## Architecture
+
+```
+Home LAN (192.168.1.0/24)
+  |
+  +-- Home Gateway/Router
+  |     \-- UDP 51820 forwarded -> Host 01
+  |
+  +-- Host 01 (192.168.1.10)
+  |     +-- Nomad server + client
+  |     +-- WireGuard (wg0, VPN endpoint)
+  |     +-- iptables (NAT, port forwarding, egress blocking)
+  |     \-- VM (192.168.122.50) <- private subnet, not on LAN
+  |           +-- Nomad client + Docker
+  |           +-- Traefik (reverse proxy)
+  |           +-- Plex container (read-only root)
+  |           \-- Sonarr container (read-only root)
+  |
+  \-- Host 02 (192.168.1.11)
+        +-- Nomad server + client
+        +-- iptables (NAT, port forwarding, egress blocking)
+        \-- VM (192.168.123.50) <- private subnet, not on LAN
+              +-- Nomad client + Docker
+              +-- Traefik (reverse proxy)
+              +-- Radarr container (read-only root)
+              \-- Bazarr container (read-only root)
+```
+
+**Two-layer isolation**: Trusted infrastructure (Nomad, WireGuard, KVM) runs on the host. Applications run inside VMs behind NAT. A container escape lands in the VM kernel, not the host.
+
+### Security layers
+
+1. **OS hardening** — UFW firewall, SSH key-only auth, unattended security updates
+2. **NAT networking** — VMs on private subnets, invisible to the home LAN
+3. **Egress blocking** — VMs cannot initiate connections to other LAN devices
+4. **VM kernel isolation** — Container breakouts are contained by the VM boundary
+5. **Reverse proxy** — Single ingress point with TLS, security headers, rate limiting
+6. **Read-only containers** — Immutable root filesystem, writable only for data volumes
+
+## Prerequisites
+
+### Hardware
+
+- Two Debian 12 servers (laptops or bare-metal), each with:
+  - 8 GB+ RAM
+  - Dual-core CPU with Intel VT-x
+  - 128 GB+ storage
+  - Ethernet to home LAN
+
+### Software (on your workstation)
+
+- [Go](https://go.dev/) 1.21+ (to build the CLI)
+- [Terraform](https://www.terraform.io/) (latest stable)
+- [Ansible](https://docs.ansible.com/) (latest stable)
+- [Nomad CLI](https://www.nomadproject.io/) (latest stable)
+- [WireGuard client](https://www.wireguard.com/install/) (for VPN access)
+- SSH client with key-based auth configured to both servers
+
+### Network preparation
+
+Forward UDP port **51820** on your home gateway/router to the server that will act as the WireGuard endpoint. If your home IP is dynamic, set up a dynamic DNS hostname (e.g., DuckDNS, No-IP).
+
+### Server preparation
+
+- Debian 12 installed (minimal/netinst)
+- SSH access working from your workstation
+- Intel VT-x enabled in BIOS
+
+## Setup
+
+### 1. Clone and build
+
+```bash
+git clone <repo-url> && cd homelab-vibe
+cd iac/cli && go build -o ../../iac . && cd ../..
+```
+
+### 2. Configure
+
+Copy the example config and fill in your values:
+
+```bash
+cp homelab.yml.example homelab.yml
+```
+
+Edit `homelab.yml` — this is the **only file you need to touch**:
+
+```yaml
+cluster:
+  name: homelab
+  datacenter: dc1
+
+hosts:
+  homelab-host-01:
+    ip: 192.168.1.10              # your server 1 LAN IP
+    nat_subnet: 192.168.122.0/24
+    wireguard_endpoint: true
+  homelab-host-02:
+    ip: 192.168.1.11              # your server 2 LAN IP
+    nat_subnet: 192.168.123.0/24
+
+vpn:
+  subnet: 10.0.0.0/24
+  endpoint: home.example.com      # your public IP or DDNS hostname
+  port: 51820
+  lan_routes:
+    - 192.168.1.0/24
+
+storage:
+  media_path: /mnt/media
+  downloads_path: /mnt/downloads
+  config_path: /mnt/config
+
+apps:
+  plex:
+    enabled: true
+    image: linuxserver/plex:latest
+    port: 32400
+  sonarr:
+    enabled: true
+    image: linuxserver/sonarr:latest
+    port: 8989
+  radarr:
+    enabled: true
+    image: linuxserver/radarr:latest
+    port: 7878
+  bazarr:
+    enabled: true
+    image: linuxserver/bazarr:latest
+    port: 6767
+
+auto_update:
+  enabled: true
+  schedule: "0 3 * * *"           # daily at 3 AM UTC
+  auto_revert: true
+
+secrets:
+  ssh_key_path: ~/.ssh/id_ed25519
+  ssh_user: admin
+```
+
+The `iac` CLI reads this file and generates all tool-specific configs (Ansible inventory, Terraform tfvars, Nomad job files) into `.generated/`. You never edit those files directly.
+
+## Usage
+
+### Bootstrap infrastructure
+
+Provision both servers — this hardens the OS, installs KVM/libvirt, sets up Nomad, creates workload VMs with Docker, and configures NAT networking:
+
+```bash
+iac provision host --name homelab-host-01
+iac provision host --name homelab-host-02
+```
+
+### Deploy VPN
+
+Install WireGuard on the designated host for secure remote access:
+
+```bash
+iac deploy vpn
+```
+
+Generate client configs for your team:
+
+```bash
+iac generate vpn-client --name "danny-laptop"
+iac generate vpn-client --name "danny-phone"    # includes QR code
+```
+
+Client configs are saved to `.generated/vpn-clients/`. Import them into the WireGuard app.
+
+### Deploy applications
+
+Deploy the reverse proxy, then each media app:
+
+```bash
+iac deploy proxy
+iac deploy app --name plex
+iac deploy app --name sonarr
+iac deploy app --name radarr
+iac deploy app --name bazarr
+```
+
+Each command submits a Nomad job that schedules the container on an available VM with a read-only root filesystem. Traefik routes traffic to the containers automatically.
+
+### Verify
+
+```bash
+iac status                  # cluster overview: hosts, VMs, jobs, VPN
+iac audit security          # run security checks across all infrastructure
+```
+
+After deployment, access apps from the home LAN (or over VPN):
+
+| App    | URL                             |
+|--------|---------------------------------|
+| Plex   | `http://<host-ip>:32400`        |
+| Sonarr | `http://<host-ip>:8989`         |
+| Radarr | `http://<host-ip>:7878`         |
+| Bazarr | `http://<host-ip>:6767`         |
+
+### Manage auto-updates
+
+Apps are updated automatically by a daily Nomad batch job that compares Docker image digests. Failed updates are rolled back automatically.
+
+```bash
+iac update status            # show update status for all apps
+iac update trigger           # manually trigger an update check now
+iac update enable --app plex # enable auto-updates for a specific app
+iac update disable --app plex
+```
+
+### Tear down
+
+```bash
+iac teardown                 # destroy all VMs and Nomad jobs via Terraform
+```
+
+## CLI reference
+
+```
+iac <command> [options]
+
+Commands:
+  provision host       Provision a physical host (hardening, hypervisor, Nomad, VM)
+  deploy vpn           Deploy WireGuard VPN on designated host
+  deploy proxy         Deploy reverse proxy into workload VMs
+  deploy app           Deploy a media application (plex, sonarr, radarr, bazarr)
+  generate configs     Generate all tool-specific configs from homelab.yml
+  generate vpn-client  Generate a WireGuard client config
+  status               Show cluster status (hosts, VMs, jobs, VPN)
+  update status        Show auto-update status for all apps
+  update trigger       Manually trigger an update check
+  update enable        Enable auto-updates for an app
+  update disable       Disable auto-updates for an app
+  audit security       Run security audit across all infrastructure
+  teardown             Tear down all VMs and Nomad jobs
+  version              Print version
+```
+
+All commands read configuration from `homelab.yml` at the repository root.
+
+## Project structure
+
+```
+homelab.yml.example          # example config — copy to homelab.yml
+iac/
+  cli/                       # Go CLI source
+    main.go                  # entrypoint and command routing
+    cmd/                     # command implementations
+    config/                  # config loader and validator
+    generators/              # Ansible/Terraform/Nomad config generators
+    updater/                 # Docker image update checker
+    wireguard/               # WireGuard key/peer management
+  ansible/
+    playbooks/               # provision-host, deploy-vpn, security-audit
+    roles/                   # hardening, hypervisor, nomad, nat-network,
+                             # vm-create, vm-guest, wireguard
+  terraform/                 # libvirt VM lifecycle, Nomad job lifecycle
+  nomad/jobs/                # reference HCL job files
+  templates/                 # Go text/template HCL templates
+tests/
+  integration/               # e2e deployment test script
+.generated/                  # auto-generated configs (gitignored)
+```
+
+## Scaling to new hardware
+
+When you migrate to beefier servers:
+
+1. Update `homelab.yml` with the new host IPs and storage paths
+2. Run `iac provision host` for each new host
+3. Nomad automatically distributes workloads across the expanded cluster
+4. No changes to job files or application configs needed
+
+## Tech stack
+
+| Component   | Tool                  | Why                                          |
+|-------------|-----------------------|----------------------------------------------|
+| CLI         | Go                    | Single binary, no runtime dependencies       |
+| Provisioning| Ansible               | Agentless, SSH-based, idempotent             |
+| VM lifecycle| Terraform + libvirt   | Declarative, reproducible                    |
+| Scheduling  | Nomad                 | Lightweight (~500-750 MB), multi-host        |
+| Containers  | Docker                | Industry standard, LinuxServer.io images     |
+| VPN         | WireGuard             | Kernel-level, no third-party trust           |
+| Proxy       | Traefik               | Auto-discovery, TLS, security headers        |
+| OS          | Debian 12             | Stable, security updates, KVM support        |
