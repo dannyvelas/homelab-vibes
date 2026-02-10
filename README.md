@@ -173,7 +173,7 @@ iac generate vpn-client --name "danny-laptop"
 iac generate vpn-client --name "danny-phone"    # includes QR code
 ```
 
-Client configs are saved to `.generated/vpn-clients/`. Import them into the WireGuard app.
+Client configs are saved to `.generated/vpn-clients/`. Import them into the WireGuard app on each device, then delete the `.conf` files from your workstation — they contain the client's private key and preshared key. The `.generated/` directory is gitignored and the files are created with `0600` permissions, but they should be treated as sensitive and not kept around longer than needed.
 
 ### Deploy applications
 
