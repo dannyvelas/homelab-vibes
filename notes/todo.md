@@ -1,3 +1,6 @@
+fixes:
+- [ ] fix `findRepoRoot` function, doesn't actually find repo root. doesn't work if you run it inside of iac/cli directory. returns `"/Users/dannyvelasquez/RemoteGit/MyGithub/homelab-vibe/iac/cli"` instead of `"/Users/dannyvelasquez/RemoteGit/MyGithub/homelab-vibe/"`.
+
 future:
 - [ ] add some TACO software (like terraform enterprise, scalr, spacelift, env0) so that terraform repo is always the absolute source of truth
   - looks liks terraform enterprise is too heavy
