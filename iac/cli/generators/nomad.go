@@ -46,19 +46,19 @@ func generateAppJob(appName string, appCfg config.AppConfig, cfg *config.Config,
 	}
 
 	// Prepare template data
-	data := map[string]interface{}{
-		"AppName":             appName,
-		"Image":               appCfg.Image,
-		"Port":                appCfg.Port,
-		"MediaPath":           cfg.Storage.MediaPath,
-		"DownloadsPath":       cfg.Storage.DownloadsPath,
-		"ConfigPath":          cfg.Storage.ConfigPath,
-		"ClusterName":         cfg.Cluster.Name,
-		"Datacenter":          cfg.Cluster.Datacenter,
-		"AutoUpdateEnabled":   cfg.AutoUpdate.Enabled,
-		"AutoUpdateSchedule":  cfg.AutoUpdate.Schedule,
-		"AutoRevert":          cfg.AutoUpdate.AutoRevert,
-		"HealthCheckTimeout":  cfg.AutoUpdate.HealthCheckTimeout,
+	data := map[string]any{
+		"AppName":            appName,
+		"Image":              appCfg.Image,
+		"Port":               appCfg.Port,
+		"MediaPath":          cfg.Storage.MediaPath,
+		"DownloadsPath":      cfg.Storage.DownloadsPath,
+		"ConfigPath":         cfg.Storage.ConfigPath,
+		"ClusterName":        cfg.Cluster.Name,
+		"Datacenter":         cfg.Cluster.Datacenter,
+		"AutoUpdateEnabled":  cfg.AutoUpdate.Enabled,
+		"AutoUpdateSchedule": cfg.AutoUpdate.Schedule,
+		"AutoRevert":         cfg.AutoUpdate.AutoRevert,
+		"HealthCheckTimeout": cfg.AutoUpdate.HealthCheckTimeout,
 	}
 
 	// Execute template
@@ -90,7 +90,7 @@ func generateProxyJob(cfg *config.Config, outputDir, templateDir string) error {
 	for name, app := range enabledApps {
 		appPorts[name] = app.Port
 	}
-	data := map[string]interface{}{
+	data := map[string]any{
 		"ClusterName": cfg.Cluster.Name,
 		"Datacenter":  cfg.Cluster.Datacenter,
 		"Apps":        appPorts,
@@ -126,7 +126,7 @@ func generateAutoUpdaterJob(cfg *config.Config, outputDir, templateDir string) e
 	for name := range enabledApps {
 		appNames = append(appNames, name)
 	}
-	data := map[string]interface{}{
+	data := map[string]any{
 		"ClusterName":        cfg.Cluster.Name,
 		"Datacenter":         cfg.Cluster.Datacenter,
 		"Enabled":            cfg.AutoUpdate.Enabled,

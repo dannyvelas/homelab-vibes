@@ -72,7 +72,7 @@ func getAppDeploymentInfo(appName string) (status, image, version string) {
 		Status     string `json:"Status"`
 		TaskGroups []struct {
 			Tasks []struct {
-				Config map[string]interface{} `json:"Config"`
+				Config map[string]any `json:"Config"`
 			} `json:"Tasks"`
 		} `json:"TaskGroups"`
 	}

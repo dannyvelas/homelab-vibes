@@ -67,7 +67,7 @@ func GetCurrentImage(appName string) (string, error) {
 		Job struct {
 			TaskGroups []struct {
 				Tasks []struct {
-					Config map[string]interface{} `json:"Config"`
+					Config map[string]any `json:"Config"`
 				} `json:"Tasks"`
 			} `json:"TaskGroups"`
 		} `json:"Job"`
