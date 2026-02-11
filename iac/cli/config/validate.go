@@ -90,14 +90,6 @@ func (c *Config) Validate() []error {
 		}
 	}
 
-	// Auto-update validation
-	if c.AutoUpdate.HealthCheckTimeout != "" {
-		timeout := c.AutoUpdate.HealthCheckTimeout
-		if !strings.HasSuffix(timeout, "s") && !strings.HasSuffix(timeout, "m") && !strings.HasSuffix(timeout, "h") {
-			errs = append(errs, fmt.Errorf("auto_update.health_check_timeout: must end with s, m, or h (got %q)", timeout))
-		}
-	}
-
 	return errs
 }
 

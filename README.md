@@ -1,6 +1,6 @@
 # homelab-vibe
 
-Infrastructure as Code for a homelab media environment. A single Go CLI (`iac`) reads one config file (`homelab.yml`) and orchestrates Terraform, Ansible, and Nomad to provision servers, deploy a WireGuard VPN, and run Plex, Sonarr, Radarr, and Bazarr as isolated Docker containers inside KVM virtual machines.
+Infrastructure as Code for a homelab media environment. A single Go CLI (`iac`) reads one config file (`homelab.yml`) and orchestrates Terraform and Ansible to provision servers, deploy a WireGuard VPN, and run Plex, Sonarr, Radarr, and Bazarr as isolated Docker containers inside KVM virtual machines.
 
 Designed to run on two 8GB RAM Debian 12 laptops today and migrate to proper bare-metal servers tomorrow — change the IPs in one file and re-run.
 
@@ -13,26 +13,24 @@ Home LAN (192.168.1.0/24)
   |     \-- UDP 51820 forwarded -> Host 01
   |
   +-- Host 01 (192.168.1.10)
-  |     +-- Nomad server + client
   |     +-- WireGuard (wg0, VPN endpoint)
   |     +-- iptables (NAT, port forwarding, egress blocking)
   |     \-- VM (192.168.122.50) <- private subnet, not on LAN
-  |           +-- Nomad client + Docker
+  |           +-- Docker
   |           +-- Traefik (reverse proxy)
   |           +-- Plex container (read-only root)
   |           \-- Sonarr container (read-only root)
   |
   \-- Host 02 (192.168.1.11)
-        +-- Nomad server + client
         +-- iptables (NAT, port forwarding, egress blocking)
         \-- VM (192.168.123.50) <- private subnet, not on LAN
-              +-- Nomad client + Docker
+              +-- Docker
               +-- Traefik (reverse proxy)
               +-- Radarr container (read-only root)
               \-- Bazarr container (read-only root)
 ```
 
-**Two-layer isolation**: Trusted infrastructure (Nomad, WireGuard, KVM) runs on the host. Applications run inside VMs behind NAT. A container escape lands in the VM kernel, not the host.
+**Two-layer isolation**: Trusted infrastructure (WireGuard, KVM) runs on the host. Applications run inside VMs behind NAT. A container escape lands in the VM kernel, not the host.
 
 ### Security layers
 
@@ -58,7 +56,6 @@ Home LAN (192.168.1.0/24)
 - [Go](https://go.dev/) 1.21+ (to build the CLI)
 - [Terraform](https://www.terraform.io/) (latest stable)
 - [Ansible](https://docs.ansible.com/) (latest stable)
-- [Nomad CLI](https://www.nomadproject.io/) (latest stable)
 - [WireGuard client](https://www.wireguard.com/install/) (for VPN access)
 - SSH client with key-based auth configured to both servers
 
@@ -94,7 +91,6 @@ Edit `homelab.yml` — this is the **only file you need to touch**:
 ```yaml
 cluster:
   name: homelab
-  datacenter: dc1
 
 hosts:
   homelab-host-01:
@@ -138,20 +134,19 @@ apps:
 auto_update:
   enabled: true
   schedule: "0 3 * * *"           # daily at 3 AM UTC
-  auto_revert: true
 
 secrets:
   ssh_key_path: ~/.ssh/id_ed25519
   ssh_user: admin
 ```
 
-The `iac` CLI reads this file and generates all tool-specific configs (Ansible inventory, Terraform tfvars, Nomad job files) into `.generated/`. You never edit those files directly.
+The `iac` CLI reads this file and generates all tool-specific configs (Ansible inventory, Terraform tfvars) into `.generated/`. You never edit those files directly.
 
 ## Usage
 
 ### Bootstrap infrastructure
 
-Provision both servers — this hardens the OS, installs KVM/libvirt, sets up Nomad, creates workload VMs with Docker, and configures NAT networking:
+Provision both servers — this hardens the OS, installs KVM/libvirt, creates workload VMs with Docker, and configures NAT networking:
 
 ```bash
 iac provision host --name homelab-host-01
@@ -187,12 +182,12 @@ iac deploy app --name radarr
 iac deploy app --name bazarr
 ```
 
-Each command submits a Nomad job that schedules the container on an available VM with a read-only root filesystem. Traefik routes traffic to the containers automatically.
+Each command runs an Ansible playbook that deploys the container into the VM with a read-only root filesystem, restart policy, and proper volume mounts. Traefik routes traffic to the containers automatically.
 
 ### Verify
 
 ```bash
-iac status                  # cluster overview: hosts, VMs, jobs, VPN
+iac status                  # cluster overview: hosts, containers, VPN
 iac audit security          # run security checks across all infrastructure
 ```
 
@@ -207,19 +202,16 @@ After deployment, access apps from the home LAN (or over VPN):
 
 ### Manage auto-updates
 
-Apps are updated automatically by a daily Nomad batch job that compares Docker image digests. Failed updates are rolled back automatically.
+Apps are updated automatically by a systemd timer that compares Docker image digests and recreates containers when a new image is available.
 
 ```bash
-iac update status            # show update status for all apps
-iac update trigger           # manually trigger an update check now
-iac update enable --app plex # enable auto-updates for a specific app
-iac update disable --app plex
+iac update status            # show update status for all hosts
 ```
 
 ### Tear down
 
 ```bash
-iac teardown                 # destroy all VMs and Nomad jobs via Terraform
+iac teardown                 # destroy all VMs via Terraform
 ```
 
 ## CLI reference
@@ -228,19 +220,16 @@ iac teardown                 # destroy all VMs and Nomad jobs via Terraform
 iac <command> [options]
 
 Commands:
-  provision host       Provision a physical host (hardening, hypervisor, Nomad, VM)
+  provision host       Provision a physical host (hardening, hypervisor, VM)
   deploy vpn           Deploy WireGuard VPN on designated host
   deploy proxy         Deploy reverse proxy into workload VMs
   deploy app           Deploy a media application (plex, sonarr, radarr, bazarr)
   generate configs     Generate all tool-specific configs from homelab.yml
   generate vpn-client  Generate a WireGuard client config
-  status               Show cluster status (hosts, VMs, jobs, VPN)
-  update status        Show auto-update status for all apps
-  update trigger       Manually trigger an update check
-  update enable        Enable auto-updates for an app
-  update disable       Disable auto-updates for an app
+  status               Show cluster status (hosts, containers, VPN)
+  update status        Show auto-update status for all hosts
   audit security       Run security audit across all infrastructure
-  teardown             Tear down all VMs and Nomad jobs
+  teardown             Tear down all VMs
   version              Print version
 ```
 
@@ -255,16 +244,15 @@ iac/
     main.go                  # entrypoint and command routing
     cmd/                     # command implementations
     config/                  # config loader and validator
-    generators/              # Ansible/Terraform/Nomad config generators
-    updater/                 # Docker image update checker
+    generators/              # Ansible/Terraform config generators
     wireguard/               # WireGuard key/peer management
   ansible/
-    playbooks/               # provision-host, deploy-vpn, security-audit
-    roles/                   # hardening, hypervisor, nomad, nat-network,
-                             # vm-create, vm-guest, wireguard
-  terraform/                 # libvirt VM lifecycle, Nomad job lifecycle
-  nomad/jobs/                # reference HCL job files
-  templates/                 # Go text/template HCL templates
+    playbooks/               # provision-host, deploy-app, deploy-proxy,
+                             # deploy-vpn, deploy-updater, security-audit
+    roles/                   # hardening, hypervisor, nat-network,
+                             # vm-create, vm-guest, wireguard,
+                             # app-container, proxy-container, auto-updater
+  terraform/                 # libvirt VM lifecycle
 tests/
   integration/               # e2e deployment test script
 .generated/                  # auto-generated configs (gitignored)
@@ -276,8 +264,8 @@ When you migrate to beefier servers:
 
 1. Update `homelab.yml` with the new host IPs and storage paths
 2. Run `iac provision host` for each new host
-3. Nomad automatically distributes workloads across the expanded cluster
-4. No changes to job files or application configs needed
+3. Deploy apps to the new hosts
+4. No changes to application configs needed
 
 ## Tech stack
 
@@ -286,7 +274,6 @@ When you migrate to beefier servers:
 | CLI         | Go                    | Single binary, no runtime dependencies       |
 | Provisioning| Ansible               | Agentless, SSH-based, idempotent             |
 | VM lifecycle| Terraform + libvirt   | Declarative, reproducible                    |
-| Scheduling  | Nomad                 | Lightweight (~500-750 MB), multi-host        |
 | Containers  | Docker                | Industry standard, LinuxServer.io images     |
 | VPN         | WireGuard             | Kernel-level, no third-party trust           |
 | Proxy       | Traefik               | Auto-discovery, TLS, security headers        |

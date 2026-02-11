@@ -1,6 +1,6 @@
 ---
 # Create a workload VM via libvirt with cloud-init for initial setup.
-# The VM runs on a private NAT subnet and hosts Nomad client + Docker.
+# The VM runs on a private NAT subnet and hosts Docker.
 
 - name: Download Debian cloud image (if not present)
   ansible.builtin.get_url:

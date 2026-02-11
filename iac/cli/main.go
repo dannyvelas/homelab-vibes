@@ -7,7 +7,7 @@ import (
 	"github.com/homelab-vibe/iac/cmd"
 )
 
-const version = "0.1.0"
+const version = "0.2.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -70,18 +70,16 @@ func printUsage() {
 Usage: iac <command> [options]
 
 Commands:
-  provision host    Provision a physical host (hardening, hypervisor, Nomad, VM)
+  provision host    Provision a physical host (hardening, hypervisor, VM)
   deploy vpn        Deploy WireGuard VPN on designated host
   deploy proxy      Deploy reverse proxy into workload VMs
   deploy app        Deploy a media application (plex, sonarr, radarr, bazarr)
   generate vpn-client  Generate a WireGuard client config
-  status            Show cluster status (hosts, VMs, jobs, VPN)
+  generate configs  Regenerate all tool-specific configs from homelab.yml
+  status            Show cluster status (hosts, containers, VPN)
   update status     Show auto-update status for all apps
-  update trigger    Manually trigger an update check
-  update enable     Enable auto-updates for an app
-  update disable    Disable auto-updates for an app
   audit security    Run security audit across all infrastructure
-  teardown          Tear down all VMs and Nomad jobs
+  teardown          Tear down all VMs
 
 Configuration:
   All configuration is read from homelab.yml at the repository root.

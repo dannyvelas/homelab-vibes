@@ -42,7 +42,6 @@ func generateConfigs(args []string) error {
 		return err
 	}
 	generatedDir := filepath.Join(repoRoot, ".generated")
-	templateDir := filepath.Join(repoRoot, "iac", "templates")
 
 	fmt.Println("Generating all tool-specific configs...")
 
@@ -52,10 +51,6 @@ func generateConfigs(args []string) error {
 
 	if err := generators.GenerateTerraformVars(cfg, filepath.Join(generatedDir, "terraform")); err != nil {
 		return fmt.Errorf("generating Terraform vars: %w", err)
-	}
-
-	if err := generators.GenerateNomadJobs(cfg, filepath.Join(generatedDir, "nomad"), templateDir); err != nil {
-		return fmt.Errorf("generating Nomad jobs: %w", err)
 	}
 
 	fmt.Println("All configs generated into .generated/")

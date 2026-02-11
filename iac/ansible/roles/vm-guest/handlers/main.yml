@@ -1,5 +1,5 @@
 ---
-- name: Restart nomad in VM
+- name: Restart docker
   ansible.builtin.systemd:
-    name: nomad
+    name: docker
     state: restarted

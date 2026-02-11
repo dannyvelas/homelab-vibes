@@ -82,7 +82,6 @@ func generateGroupVars(cfg *config.Config, outputDir string) error {
 
 	sb.WriteString("---\n")
 	sb.WriteString(fmt.Sprintf("cluster_name: %s\n", cfg.Cluster.Name))
-	sb.WriteString(fmt.Sprintf("datacenter: %s\n", cfg.Cluster.Datacenter))
 	sb.WriteString(fmt.Sprintf("ssh_user: %s\n", cfg.Secrets.SSHUser))
 	sb.WriteString("\n")
 
@@ -106,21 +105,10 @@ func generateGroupVars(cfg *config.Config, outputDir string) error {
 	}
 	sb.WriteString("\n")
 
-	// Nomad cluster configuration
-	sb.WriteString("# Nomad Cluster Configuration\n")
-	sb.WriteString(fmt.Sprintf("nomad_server_bootstrap_expect: %d\n", len(cfg.Hosts)))
-	sb.WriteString("nomad_server_ips:\n")
-	for _, hostCfg := range cfg.Hosts {
-		sb.WriteString(fmt.Sprintf("  - %s\n", hostCfg.IP))
-	}
-	sb.WriteString("\n")
-
 	// Auto-update configuration
 	sb.WriteString("# Auto-Update Configuration\n")
 	sb.WriteString(fmt.Sprintf("auto_update_enabled: %t\n", cfg.AutoUpdate.Enabled))
-	sb.WriteString(fmt.Sprintf("auto_update_schedule: %s\n", cfg.AutoUpdate.Schedule))
-	sb.WriteString(fmt.Sprintf("auto_update_auto_revert: %t\n", cfg.AutoUpdate.AutoRevert))
-	sb.WriteString(fmt.Sprintf("auto_update_health_check_timeout: %s\n", cfg.AutoUpdate.HealthCheckTimeout))
+	sb.WriteString(fmt.Sprintf("auto_update_schedule: \"%s\"\n", cfg.AutoUpdate.Schedule))
 
 	// Write to file
 	groupVarsPath := filepath.Join(groupVarsDir, "all.yml")

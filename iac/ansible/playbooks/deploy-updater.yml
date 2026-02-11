@@ -1,0 +1,15 @@
+---
+# Deploy the auto-updater systemd timer to workload VMs.
+#
+# Usage (invoked by `iac deploy app` when auto_update is enabled):
+#   ansible-playbook -i .generated/ansible/inventory/hosts.yml \
+#     iac/ansible/playbooks/deploy-updater.yml
+
+- name: Deploy auto-updater
+  hosts: vms
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: auto-updater
+      tags: [updater]

@@ -19,8 +19,7 @@ type Config struct {
 }
 
 type ClusterConfig struct {
-	Name       string `yaml:"name"`
-	Datacenter string `yaml:"datacenter"`
+	Name string `yaml:"name"`
 }
 
 type HostConfig struct {
@@ -49,10 +48,8 @@ type AppConfig struct {
 }
 
 type AutoUpdateConfig struct {
-	Enabled            bool   `yaml:"enabled"`
-	Schedule           string `yaml:"schedule"`
-	AutoRevert         bool   `yaml:"auto_revert"`
-	HealthCheckTimeout string `yaml:"health_check_timeout"`
+	Enabled  bool   `yaml:"enabled"`
+	Schedule string `yaml:"schedule"`
 }
 
 type SecretsConfig struct {
@@ -80,17 +77,11 @@ func Load(path string) (*Config, error) {
 
 // applyDefaults sets default values for optional fields.
 func (c *Config) applyDefaults() {
-	if c.Cluster.Datacenter == "" {
-		c.Cluster.Datacenter = "dc1"
-	}
 	if c.VPN.Port == 0 {
 		c.VPN.Port = 51820
 	}
 	if c.AutoUpdate.Schedule == "" {
 		c.AutoUpdate.Schedule = "0 3 * * *"
-	}
-	if c.AutoUpdate.HealthCheckTimeout == "" {
-		c.AutoUpdate.HealthCheckTimeout = "5m"
 	}
 	if c.Secrets.SSHUser == "" {
 		c.Secrets.SSHUser = "admin"

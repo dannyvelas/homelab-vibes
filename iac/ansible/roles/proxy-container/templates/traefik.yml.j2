@@ -1,0 +1,21 @@
+# Traefik static configuration.
+# Managed by Ansible — DO NOT EDIT.
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+
+api:
+  dashboard: false

@@ -28,17 +28,21 @@ func deployProxy(args []string) error {
 		return err
 	}
 	generatedDir := filepath.Join(repoRoot, ".generated")
-	templateDir := filepath.Join(repoRoot, "iac", "templates")
 
-	// Generate Nomad job files
-	if err := generators.GenerateNomadJobs(cfg, filepath.Join(generatedDir, "nomad"), templateDir); err != nil {
-		return fmt.Errorf("generating Nomad jobs: %w", err)
+	// Generate Ansible inventory
+	if err := generators.GenerateAnsibleInventory(cfg, filepath.Join(generatedDir, "ansible", "inventory")); err != nil {
+		return fmt.Errorf("generating Ansible inventory: %w", err)
 	}
 
-	// Submit proxy job to Nomad
-	proxyJob := filepath.Join(generatedDir, "nomad", "proxy.hcl")
-	if err := runCommand(repoRoot, "nomad", "job", "run", proxyJob); err != nil {
-		return fmt.Errorf("nomad job run proxy: %w", err)
+	// Run Ansible playbook to deploy the proxy container
+	inventoryFile := filepath.Join(generatedDir, "ansible", "inventory", "hosts.yml")
+	playbookFile := filepath.Join(repoRoot, "iac", "ansible", "playbooks", "deploy-proxy.yml")
+
+	if err := runCommand(repoRoot, "ansible-playbook",
+		"-i", inventoryFile,
+		playbookFile,
+	); err != nil {
+		return fmt.Errorf("ansible-playbook deploy-proxy: %w", err)
 	}
 
 	fmt.Println("\nReverse proxy deployed!")

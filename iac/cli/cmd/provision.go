@@ -56,7 +56,6 @@ func provisionHost(args []string) error {
 		return fmt.Errorf("finding repo root: %w", err)
 	}
 	generatedDir := filepath.Join(repoRoot, ".generated")
-	templateDir := filepath.Join(repoRoot, "iac", "templates")
 
 	// Step 1: Generate all tool-specific configs
 	fmt.Println("  [1/3] Generating tool-specific configs from homelab.yml...")
@@ -67,10 +66,6 @@ func provisionHost(args []string) error {
 
 	if err := generators.GenerateTerraformVars(cfg, filepath.Join(generatedDir, "terraform")); err != nil {
 		return fmt.Errorf("generating Terraform vars: %w", err)
-	}
-
-	if err := generators.GenerateNomadJobs(cfg, filepath.Join(generatedDir, "nomad"), templateDir); err != nil {
-		return fmt.Errorf("generating Nomad jobs: %w", err)
 	}
 
 	fmt.Println("  Configs generated into .generated/")
@@ -106,7 +101,7 @@ func provisionHost(args []string) error {
 	fmt.Printf("\nHost %s provisioned successfully!\n", *name)
 	fmt.Printf("  Host IP: %s\n", host.IP)
 	fmt.Printf("  NAT Subnet: %s\n", host.NATSubnet)
-	fmt.Println("  Nomad cluster status: run 'iac status' to check")
+	fmt.Println("  Run 'iac status' to check cluster health")
 
 	return nil
 }

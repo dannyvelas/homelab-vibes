@@ -1,5 +1,5 @@
 ---
-# VM guest setup: OS hardening, Docker engine, Nomad client.
+# VM guest setup: OS hardening, Docker engine.
 # This role runs INSIDE the VM (not on the host).
 
 - name: Update apt cache
@@ -20,12 +20,6 @@
   community.general.ufw:
     rule: allow
     port: "22"
-    proto: tcp
-
-- name: Configure VM UFW - allow Nomad
-  community.general.ufw:
-    rule: allow
-    port: "4646"
     proto: tcp
 
 - name: Enable VM UFW
@@ -66,47 +60,6 @@
 - name: Enable and start Docker
   ansible.builtin.systemd:
     name: docker
-    enabled: true
-    state: started
-
-# --- Nomad client installation (inside VM) ---
-
-- name: Add HashiCorp GPG key
-  ansible.builtin.apt_key:
-    url: https://apt.releases.hashicorp.com/gpg
-    state: present
-
-- name: Add HashiCorp APT repository
-  ansible.builtin.apt_repository:
-    repo: "deb https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main"
-    state: present
-
-- name: Install Nomad
-  ansible.builtin.apt:
-    name: nomad
-    state: present
-    update_cache: true
-
-- name: Create Nomad data directory
-  ansible.builtin.file:
-    path: /opt/nomad/data
-    state: directory
-    owner: nomad
-    group: nomad
-    mode: "0755"
-
-- name: Configure Nomad client in VM
-  ansible.builtin.template:
-    src: nomad-client.hcl.j2
-    dest: /etc/nomad.d/nomad.hcl
-    mode: "0640"
-    owner: root
-    group: nomad
-  notify: Restart nomad in VM
-
-- name: Enable and start Nomad
-  ansible.builtin.systemd:
-    name: nomad
     enabled: true
     state: started
 

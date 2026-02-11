@@ -41,6 +41,6 @@ func Teardown(args []string) error {
 		}
 	}
 
-	fmt.Println("\nAll VMs and Nomad jobs destroyed.")
+	fmt.Println("\nAll VMs destroyed.")
 	return nil
 }

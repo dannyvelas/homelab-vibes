@@ -1,0 +1,58 @@
+#!/bin/bash
+# Auto-update script for homelab containers.
+# Checks for new Docker images and recreates containers when updates are available.
+# Managed by Ansible — DO NOT EDIT.
+#
+# This script is run by the homelab-updater systemd timer.
+# All output goes to journald: journalctl -u homelab-updater.service
+
+set -euo pipefail
+
+RUN_SCRIPT_DIR="{{ run_script_dir }}"
+CONTAINERS=({% for c in updater_containers %}"{{ c }}" {% endfor %})
+
+log() {
+    echo "[$(date -Iseconds)] $*"
+}
+
+log "Starting container update check"
+
+for CONTAINER in "${CONTAINERS[@]}"; do
+    log "Checking $CONTAINER for updates..."
+
+    # Get current image name from running container
+    CURRENT_IMAGE=$(docker inspect --format='{% raw %}{{.Config.Image}}{% endraw %}' "$CONTAINER" 2>/dev/null || echo "")
+    if [ -z "$CURRENT_IMAGE" ]; then
+        log "  $CONTAINER: not running, skipping"
+        continue
+    fi
+
+    # Get current image digest
+    OLD_DIGEST=$(docker inspect --format='{% raw %}{{.Image}}{% endraw %}' "$CONTAINER" 2>/dev/null || echo "")
+
+    # Pull latest image
+    log "  Pulling $CURRENT_IMAGE..."
+    docker pull "$CURRENT_IMAGE" > /dev/null 2>&1
+
+    # Get new image digest
+    NEW_DIGEST=$(docker image inspect --format='{% raw %}{{.Id}}{% endraw %}' "$CURRENT_IMAGE" 2>/dev/null || echo "")
+
+    if [ "$OLD_DIGEST" = "$NEW_DIGEST" ]; then
+        log "  $CONTAINER: already up to date"
+        continue
+    fi
+
+    log "  $CONTAINER: new image detected, recreating..."
+
+    # Use the per-container run script to recreate with the same config
+    RUN_SCRIPT="$RUN_SCRIPT_DIR/run-${CONTAINER}.sh"
+    if [ ! -x "$RUN_SCRIPT" ]; then
+        log "  $CONTAINER: ERROR - run script not found at $RUN_SCRIPT"
+        continue
+    fi
+
+    "$RUN_SCRIPT"
+    log "  $CONTAINER: updated successfully"
+done
+
+log "Container update check complete"

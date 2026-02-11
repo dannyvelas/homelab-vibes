@@ -36,12 +36,10 @@ func generateHostTfvars(cfg *config.Config, hostName string, hostCfg config.Host
 
 	// Cluster configuration
 	sb.WriteString(fmt.Sprintf("cluster_name = %q\n", cfg.Cluster.Name))
-	sb.WriteString(fmt.Sprintf("datacenter = %q\n", cfg.Cluster.Datacenter))
 	sb.WriteString("\n")
 
-	// Libvirt and Nomad connection — scoped to this host
+	// Libvirt connection — scoped to this host
 	sb.WriteString(fmt.Sprintf("libvirt_uri = \"qemu+ssh://%s@%s/system\"\n", cfg.Secrets.SSHUser, hostCfg.IP))
-	sb.WriteString(fmt.Sprintf("nomad_address = \"http://%s:4646\"\n", hostCfg.IP))
 	sb.WriteString("\n")
 
 	// SSH configuration
@@ -93,8 +91,6 @@ func generateHostTfvars(cfg *config.Config, hostName string, hostCfg config.Host
 	// Auto-update configuration
 	sb.WriteString(fmt.Sprintf("auto_update_enabled = %t\n", cfg.AutoUpdate.Enabled))
 	sb.WriteString(fmt.Sprintf("auto_update_schedule = %q\n", cfg.AutoUpdate.Schedule))
-	sb.WriteString(fmt.Sprintf("auto_update_auto_revert = %t\n", cfg.AutoUpdate.AutoRevert))
-	sb.WriteString(fmt.Sprintf("auto_update_health_check_timeout = %q\n", cfg.AutoUpdate.HealthCheckTimeout))
 
 	return sb.String()
 }

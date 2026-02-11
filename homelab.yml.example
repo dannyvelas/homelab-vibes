@@ -1,15 +1,14 @@
 # homelab.yml — single source of truth for all infrastructure configuration
 #
 # This is the ONLY file you need to edit. The `iac` CLI reads this file and
-# generates all tool-specific configs (Ansible inventory, Terraform tfvars,
-# Nomad job files) automatically. You never edit those generated files directly.
+# generates all tool-specific configs (Ansible inventory, Terraform tfvars)
+# automatically. You never edit those generated files directly.
 #
 # Copy this file to homelab.yml and fill in your values:
 #   cp homelab.yml.example homelab.yml
 
 cluster:
   name: homelab
-  datacenter: dc1
 
 hosts:
   homelab-host-01:
@@ -53,8 +52,6 @@ apps:
 auto_update:
   enabled: true
   schedule: "0 3 * * *"         # Cron expression: daily at 3 AM
-  auto_revert: true             # Auto-rollback on failed health check
-  health_check_timeout: 5m      # Time to wait for health check to pass
 
 secrets:
   ssh_key_path: ~/.ssh/id_ed25519 # Path to SSH private key

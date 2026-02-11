@@ -68,7 +68,6 @@ log_pass "iac CLI binary exists"
 
 check_cmd "terraform is installed" terraform version
 check_cmd "ansible-playbook is installed" ansible-playbook --version
-check_cmd "nomad is installed" nomad version
 
 # ----------------------------------------------------------
 # 1. Config validation
@@ -87,7 +86,7 @@ check_cmd "iac generate configs" $IAC generate configs --config "$CONFIG"
 
 # Verify generated files exist
 check_cmd "Ansible inventory generated" test -f .generated/ansible/inventory/hosts.yml
-check_cmd "Terraform tfvars generated" test -f .generated/terraform/terraform.tfvars
+check_cmd "Terraform tfvars directory generated" test -d .generated/terraform/
 check_cmd "group_vars generated" test -f .generated/ansible/inventory/group_vars/all.yml
 
 # ----------------------------------------------------------
@@ -156,14 +155,11 @@ done
 # ----------------------------------------------------------
 log_step "Step 7: Verify services accessible"
 
-# Give Nomad a moment to start containers
+# Give containers a moment to start
 echo "  Waiting 30s for services to start..."
 sleep 30
 
-# Check Nomad job status
-check_cmd "Nomad jobs are running" nomad job status
-
-# Check app ports (via Nomad)
+# Check container status
 $IAC status --config "$CONFIG" 2>&1 && log_pass "iac status shows cluster info" || log_fail "iac status failed"
 
 # ----------------------------------------------------------

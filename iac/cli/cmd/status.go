@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os/exec"
@@ -23,13 +22,13 @@ func Status(args []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	fmt.Printf("Cluster: %s (datacenter: %s)\n\n", cfg.Cluster.Name, cfg.Cluster.Datacenter)
+	fmt.Printf("Cluster: %s\n\n", cfg.Cluster.Name)
 
 	// Hosts table
 	printHostsTable(cfg)
 
-	// Nomad jobs
-	printNomadJobs()
+	// Docker containers on each VM
+	printContainerStatus(cfg)
 
 	// WireGuard status
 	if wgHost := cfg.WireGuardHost(); wgHost != "" {
@@ -54,38 +53,44 @@ func printHostsTable(cfg *config.Config) {
 	fmt.Println()
 }
 
-func printNomadJobs() {
-	fmt.Println("Nomad Jobs:")
+func printContainerStatus(cfg *config.Config) {
+	fmt.Println("Containers:")
 
-	// Query Nomad API for job status
-	out, err := exec.Command("nomad", "job", "status", "-json").Output()
-	if err != nil {
-		fmt.Println("  (Nomad not reachable or no jobs running)")
-		fmt.Println()
-		return
-	}
+	for hostName, hostCfg := range cfg.Hosts {
+		vmIP := hostCfg.IP // Will query via SSH to the VM
+		fmt.Printf("  Host: %s (%s)\n", hostName, vmIP)
 
-	var jobs []struct {
-		ID     string `json:"ID"`
-		Status string `json:"Status"`
-		Type   string `json:"Type"`
-	}
+		// Query Docker containers on the VM via SSH
+		out, err := exec.Command("ssh", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=no",
+			fmt.Sprintf("%s@%s", cfg.Secrets.SSHUser, vmIP),
+			"docker ps --format '{{.Names}}\\t{{.Image}}\\t{{.Status}}\\t{{.Ports}}'",
+		).Output()
+		if err != nil {
+			fmt.Println("    (unable to query containers)")
+			continue
+		}
 
-	if err := json.Unmarshal(out, &jobs); err != nil {
-		fmt.Printf("  (Error parsing Nomad output: %v)\n\n", err)
-		return
-	}
+		lines := strings.TrimSpace(string(out))
+		if lines == "" {
+			fmt.Println("    (no containers running)")
+			continue
+		}
 
-	if len(jobs) == 0 {
-		fmt.Println("  (No jobs registered)")
-		fmt.Println()
-		return
-	}
-
-	fmt.Printf("  %-20s %-12s %-10s\n", "JOB", "STATUS", "TYPE")
-	fmt.Printf("  %-20s %-12s %-10s\n", "---", "------", "----")
-	for _, job := range jobs {
-		fmt.Printf("  %-20s %-12s %-10s\n", job.ID, job.Status, job.Type)
+		fmt.Printf("    %-20s %-35s %-25s %s\n", "NAME", "IMAGE", "STATUS", "PORTS")
+		fmt.Printf("    %-20s %-35s %-25s %s\n", "----", "-----", "------", "-----")
+		for _, line := range strings.Split(lines, "\n") {
+			parts := strings.SplitN(line, "\t", 4)
+			if len(parts) >= 3 {
+				name := parts[0]
+				image := parts[1]
+				status := parts[2]
+				ports := ""
+				if len(parts) == 4 {
+					ports = parts[3]
+				}
+				fmt.Printf("    %-20s %-35s %-25s %s\n", name, image, status, ports)
+			}
+		}
 	}
 	fmt.Println()
 }

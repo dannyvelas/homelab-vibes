@@ -1,0 +1,15 @@
+---
+# Default values for app-container role.
+# These are overridden by extra vars passed from the iac CLI.
+
+app_name: ""
+app_image: "linuxserver/plex:latest"
+app_port: 32400
+
+# Storage paths (host paths, passed through to container)
+media_path: /mnt/media
+downloads_path: /mnt/downloads
+config_path: /mnt/config
+
+# Container run script directory inside the VM
+run_script_dir: /opt/homelab

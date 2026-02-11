@@ -1,0 +1,28 @@
+#!/bin/bash
+# Auto-generated run script for {{ app_name }}.
+# Used by the auto-updater to recreate the container with the same config.
+# DO NOT EDIT — this file is managed by Ansible.
+
+set -euo pipefail
+
+CONTAINER_NAME="{{ app_name }}"
+IMAGE="{{ app_image }}"
+
+# Stop and remove existing container if running
+docker stop "$CONTAINER_NAME" 2>/dev/null || true
+docker rm "$CONTAINER_NAME" 2>/dev/null || true
+
+# Run container with the same configuration as Ansible
+docker run -d \
+  --name "$CONTAINER_NAME" \
+  --restart unless-stopped \
+  --read-only \
+  -p {{ app_port }}:{{ app_port }} \
+  -v {{ config_path }}/{{ app_name }}:/config \
+  -v {{ downloads_path }}:/downloads \
+  -v {{ media_path }}:/media \
+  --tmpfs /tmp \
+  -e PUID=1000 \
+  -e PGID=1000 \
+  -e TZ=UTC \
+  "$IMAGE"

@@ -41,17 +41,38 @@ func deployApp(args []string) error {
 		return err
 	}
 	generatedDir := filepath.Join(repoRoot, ".generated")
-	templateDir := filepath.Join(repoRoot, "iac", "templates")
 
-	// Generate Nomad job files
-	if err := generators.GenerateNomadJobs(cfg, filepath.Join(generatedDir, "nomad"), templateDir); err != nil {
-		return fmt.Errorf("generating Nomad jobs: %w", err)
+	// Generate Ansible inventory
+	if err := generators.GenerateAnsibleInventory(cfg, filepath.Join(generatedDir, "ansible", "inventory")); err != nil {
+		return fmt.Errorf("generating Ansible inventory: %w", err)
 	}
 
-	// Submit job to Nomad
-	jobFile := filepath.Join(generatedDir, "nomad", *appName+".hcl")
-	if err := runCommand(repoRoot, "nomad", "job", "run", jobFile); err != nil {
-		return fmt.Errorf("nomad job run %s: %w", *appName, err)
+	// Run Ansible playbook to deploy the app container
+	inventoryFile := filepath.Join(generatedDir, "ansible", "inventory", "hosts.yml")
+	playbookFile := filepath.Join(repoRoot, "iac", "ansible", "playbooks", "deploy-app.yml")
+
+	if err := runCommand(repoRoot, "ansible-playbook",
+		"-i", inventoryFile,
+		playbookFile,
+		"-e", fmt.Sprintf("app_name=%s", *appName),
+		"-e", fmt.Sprintf("app_image=%s", app.Image),
+		"-e", fmt.Sprintf("app_port=%d", app.Port),
+		"-e", fmt.Sprintf("media_path=%s", cfg.Storage.MediaPath),
+		"-e", fmt.Sprintf("downloads_path=%s", cfg.Storage.DownloadsPath),
+		"-e", fmt.Sprintf("config_path=%s", cfg.Storage.ConfigPath),
+	); err != nil {
+		return fmt.Errorf("ansible-playbook deploy-app: %w", err)
+	}
+
+	// Deploy auto-updater if enabled
+	if cfg.AutoUpdate.Enabled {
+		updaterPlaybook := filepath.Join(repoRoot, "iac", "ansible", "playbooks", "deploy-updater.yml")
+		if err := runCommand(repoRoot, "ansible-playbook",
+			"-i", inventoryFile,
+			updaterPlaybook,
+		); err != nil {
+			return fmt.Errorf("ansible-playbook deploy-updater: %w", err)
+		}
 	}
 
 	fmt.Printf("\n%s deployed!\n", *appName)

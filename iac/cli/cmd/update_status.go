@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os/exec"
@@ -25,78 +24,45 @@ func updateStatus(args []string) error {
 	fmt.Println("Auto-Update Status:")
 	fmt.Printf("  Global: %s\n", boolStatus(cfg.AutoUpdate.Enabled))
 	fmt.Printf("  Schedule: %s\n", cfg.AutoUpdate.Schedule)
-	fmt.Printf("  Auto-revert: %s\n", boolStatus(cfg.AutoUpdate.AutoRevert))
-	fmt.Printf("  Health check timeout: %s\n", cfg.AutoUpdate.HealthCheckTimeout)
 	fmt.Println()
 
-	// Query Nomad for app deployment status
-	enabledApps := cfg.EnabledApps()
-	if len(enabledApps) == 0 {
-		fmt.Println("  No enabled apps.")
-		return nil
-	}
+	// Query systemd timer status on each VM via SSH
+	for hostName, hostCfg := range cfg.Hosts {
+		fmt.Printf("  Host: %s (%s)\n", hostName, hostCfg.IP)
 
-	fmt.Printf("  %-15s %-15s %-20s %-15s\n", "APP", "STATUS", "IMAGE", "VERSION")
-	fmt.Printf("  %-15s %-15s %-20s %-15s\n", "---", "------", "-----", "-------")
-
-	for appName := range enabledApps {
-		status, image, version := getAppDeploymentInfo(appName)
-		fmt.Printf("  %-15s %-15s %-20s %-15s\n", appName, status, image, version)
-	}
-
-	fmt.Println()
-
-	// Check auto-updater job status
-	out, err := exec.Command("nomad", "job", "status", "-json", "auto-updater").Output()
-	if err != nil {
-		fmt.Println("  Auto-updater job: not registered")
-	} else {
-		var job struct {
-			Status string `json:"Status"`
+		// Check timer status
+		out, err := exec.Command("ssh", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=no",
+			fmt.Sprintf("%s@%s", cfg.Secrets.SSHUser, hostCfg.IP),
+			"systemctl is-active homelab-updater.timer 2>/dev/null && systemctl show homelab-updater.timer --property=LastTriggerUSec --value 2>/dev/null",
+		).Output()
+		if err != nil {
+			fmt.Println("    Timer: (unable to query)")
+			continue
 		}
-		if json.Unmarshal(out, &job) == nil {
-			fmt.Printf("  Auto-updater job: %s\n", job.Status)
+
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		if len(lines) >= 1 {
+			fmt.Printf("    Timer: %s\n", lines[0])
 		}
-	}
+		if len(lines) >= 2 {
+			fmt.Printf("    Last run: %s\n", lines[1])
+		}
 
-	return nil
-}
-
-func getAppDeploymentInfo(appName string) (status, image, version string) {
-	out, err := exec.Command("nomad", "job", "status", "-json", appName).Output()
-	if err != nil {
-		return "(not deployed)", "-", "-"
-	}
-
-	var job struct {
-		Status     string `json:"Status"`
-		TaskGroups []struct {
-			Tasks []struct {
-				Config map[string]any `json:"Config"`
-			} `json:"Tasks"`
-		} `json:"TaskGroups"`
-	}
-
-	if err := json.Unmarshal(out, &job); err != nil {
-		return "(error)", "-", "-"
-	}
-
-	status = job.Status
-	image = "-"
-	version = "-"
-
-	if len(job.TaskGroups) > 0 && len(job.TaskGroups[0].Tasks) > 0 {
-		if img, ok := job.TaskGroups[0].Tasks[0].Config["image"].(string); ok {
-			image = img
-			// Extract version tag
-			parts := strings.SplitN(img, ":", 2)
-			if len(parts) == 2 {
-				version = parts[1]
+		// Get recent journal output
+		logOut, err := exec.Command("ssh", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=no",
+			fmt.Sprintf("%s@%s", cfg.Secrets.SSHUser, hostCfg.IP),
+			"journalctl -u homelab-updater.service --no-pager -n 5 --output=short-iso 2>/dev/null",
+		).Output()
+		if err == nil && strings.TrimSpace(string(logOut)) != "" {
+			fmt.Println("    Recent logs:")
+			for _, line := range strings.Split(strings.TrimSpace(string(logOut)), "\n") {
+				fmt.Printf("      %s\n", line)
 			}
 		}
 	}
 
-	return status, image, version
+	fmt.Println()
+	return nil
 }
 
 func boolStatus(b bool) string {

@@ -1,34 +1,35 @@
 # homelab-vibe Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-02-07
+Auto-generated from all feature plans. Last updated: 2026-02-09
 
 ## Active Technologies
-- Go (for custom scripting/logic within IaC if needed, per user preference for Go, Nim, OCaml) + Ansible, Terraform, Tailscale, Nomad, KVM/libvirt, Docker (001-iac-homelab-media)
-- Host-level storage with passthrough to VM and containers (media libraries, config, downloads) (001-iac-homelab-media)
 - Go (for `iac` CLI) + Ansible (with `community.docker` collection), Terraform (with `dmacvicar/libvirt` provider), WireGuard, KVM/libvirt, Docker (002-simplify-iac-media)
-
-- Go (for custom scripting/logic within IaC if needed, per user preference for Go, Nim, OCaml) + Ansible, Terraform, Tailscale (001-iac-homelab-media)
+- Host-level storage with passthrough to VM and containers (media libraries, config, downloads) (001-iac-homelab-media)
 
 ## Project Structure
 
 ```text
-src/
+iac/
+  cli/         # Go CLI source
+  ansible/     # Ansible playbooks and roles
+  terraform/   # Terraform VM lifecycle
 tests/
 ```
 
 ## Commands
 
-# Add commands for Go (for custom scripting/logic within IaC if needed, per user preference for Go, Nim, OCaml)
+```bash
+cd iac/cli && go build ./...   # Build CLI
+go vet ./...                    # Lint
+```
 
 ## Code Style
 
-Go (for custom scripting/logic within IaC if needed, per user preference for Go, Nim, OCaml): Follow standard conventions
+Go: Follow standard conventions (gofmt, go vet)
 
 ## Recent Changes
-- 002-simplify-iac-media: Added Go (for `iac` CLI) + Ansible (with `community.docker` collection), Terraform (with `dmacvicar/libvirt` provider), WireGuard, KVM/libvirt, Docker
-- 001-iac-homelab-media: Added Go (for custom scripting/logic within IaC if needed, per user preference for Go, Nim, OCaml) + Ansible, Terraform, Tailscale, Nomad, KVM/libvirt, Docker
-
-- 001-iac-homelab-media: Added Go (for custom scripting/logic within IaC if needed, per user preference for Go, Nim, OCaml) + Ansible, Terraform, Tailscale
+- 002-simplify-iac-media: Removed Nomad, replaced with Ansible docker_container module + systemd timer for auto-updates
+- 001-iac-homelab-media: Initial IaC implementation with Go CLI, Ansible, Terraform, KVM/libvirt, Docker
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->

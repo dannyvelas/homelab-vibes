@@ -8,23 +8,12 @@ variable "libvirt_uri" {
   type        = string
 }
 
-variable "nomad_address" {
-  description = "Nomad cluster API address (e.g., http://192.168.1.10:4646)"
-  type        = string
-}
-
 # --- Cluster ---
 
 variable "cluster_name" {
   description = "Cluster identifier"
   type        = string
   default     = "homelab"
-}
-
-variable "datacenter" {
-  description = "Nomad datacenter name"
-  type        = string
-  default     = "dc1"
 }
 
 # --- Hosts ---

@@ -1,0 +1,50 @@
+---
+# Deploy Traefik reverse proxy as a Docker container.
+
+- name: Pull latest Traefik image
+  community.docker.docker_image_pull:
+    name: "{{ proxy_image }}"
+    pull: always
+  register: proxy_pull
+
+- name: Create Traefik config directory
+  ansible.builtin.file:
+    path: "{{ proxy_config_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Template Traefik static configuration
+  ansible.builtin.template:
+    src: traefik.yml.j2
+    dest: "{{ proxy_config_dir }}/traefik.yml"
+    mode: "0644"
+  register: traefik_config
+
+- name: Deploy Traefik container
+  community.docker.docker_container:
+    name: traefik
+    image: "{{ proxy_image }}"
+    state: started
+    restart_policy: unless-stopped
+    read_only: true
+    ports:
+      - "{{ proxy_http_port }}:80"
+      - "{{ proxy_https_port }}:443"
+    volumes:
+      - "{{ proxy_config_dir }}/traefik.yml:/etc/traefik/traefik.yml:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    tmpfs:
+      - /tmp
+    recreate: "{{ proxy_pull.changed or traefik_config.changed | default(false) }}"
+
+- name: Create run script directory
+  ansible.builtin.file:
+    path: /opt/homelab
+    state: directory
+    mode: "0755"
+
+- name: Template proxy run script
+  ansible.builtin.template:
+    src: run-proxy.sh.j2
+    dest: /opt/homelab/run-traefik.sh
+    mode: "0755"

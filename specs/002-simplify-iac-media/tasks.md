@@ -19,8 +19,8 @@
 
 **Purpose**: Prepare for Nomad removal and verify current state
 
-- [ ] T001 Verify current Go CLI compiles cleanly with `cd iac/cli && go build ./...`
-- [ ] T002 [P] Verify homelab.yml.example exists and note current schema at iac/cli/homelab.yml
+- [X] T001 Verify current Go CLI compiles cleanly with `cd iac/cli && go build ./...`
+- [X] T002 [P] Verify homelab.yml.example exists and note current schema at iac/cli/homelab.yml
 
 ---
 
@@ -32,47 +32,47 @@
 
 ### Delete Nomad Files
 
-- [ ] T003 [P] Delete Nomad Ansible server role directory at iac/ansible/roles/nomad/
-- [ ] T004 [P] Delete Nomad job files directory at iac/nomad/
-- [ ] T005 [P] Delete Nomad HCL templates: iac/templates/nomad-app.hcl.tmpl, iac/templates/nomad-proxy.hcl.tmpl, iac/templates/nomad-updater.hcl.tmpl
-- [ ] T006 [P] Delete Nomad Terraform resource file at iac/terraform/nomad-jobs.tf
-- [ ] T007 [P] Delete Nomad Go generator at iac/cli/generators/nomad.go
-- [ ] T008 [P] Delete Nomad Go updater package at iac/cli/updater/updater.go
-- [ ] T009 [P] Delete Go CLI files iac/cli/cmd/update_trigger.go and iac/cli/cmd/update_toggle.go
+- [X] T003 [P] Delete Nomad Ansible server role directory at iac/ansible/roles/nomad/
+- [X] T004 [P] Delete Nomad job files directory at iac/nomad/
+- [X] T005 [P] Delete Nomad HCL templates: iac/templates/nomad-app.hcl.tmpl, iac/templates/nomad-proxy.hcl.tmpl, iac/templates/nomad-updater.hcl.tmpl
+- [X] T006 [P] Delete Nomad Terraform resource file at iac/terraform/nomad-jobs.tf
+- [X] T007 [P] Delete Nomad Go generator at iac/cli/generators/nomad.go
+- [X] T008 [P] Delete Nomad Go updater package at iac/cli/updater/updater.go
+- [X] T009 [P] Delete Go CLI files iac/cli/cmd/update_trigger.go and iac/cli/cmd/update_toggle.go
 
 ### Update Go Config Schema
 
-- [ ] T010 [US5] Remove `Datacenter` field from `ClusterConfig` struct in iac/cli/config/config.go
-- [ ] T011 [US5] Remove `AutoRevert` and `HealthCheckTimeout` fields from `AutoUpdateConfig` struct in iac/cli/config/config.go
-- [ ] T012 [US5] Remove Datacenter and HealthCheckTimeout defaults from `applyDefaults()` in iac/cli/config/config.go
-- [ ] T013 [US5] Remove datacenter validation (if any) from iac/cli/config/validate.go
+- [X] T010 [US5] Remove `Datacenter` field from `ClusterConfig` struct in iac/cli/config/config.go
+- [X] T011 [US5] Remove `AutoRevert` and `HealthCheckTimeout` fields from `AutoUpdateConfig` struct in iac/cli/config/config.go
+- [X] T012 [US5] Remove Datacenter and HealthCheckTimeout defaults from `applyDefaults()` in iac/cli/config/config.go
+- [X] T013 [US5] Remove datacenter validation (if any) from iac/cli/config/validate.go
 
 ### Update Go Generators
 
-- [ ] T014 [US5] Remove `GenerateNomadJobs` call from `generateConfigs()` in iac/cli/cmd/generate.go
-- [ ] T015 [US5] Remove Nomad cluster vars (`nomad_server_bootstrap_expect`, `nomad_server_ips`) from `generateGroupVars()` in iac/cli/generators/ansible.go
-- [ ] T016 [US6] Remove `nomad_address` variable generation from `generateHostTfvars()` in iac/cli/generators/terraform.go
+- [X] T014 [US5] Remove `GenerateNomadJobs` call from `generateConfigs()` in iac/cli/cmd/generate.go
+- [X] T015 [US5] Remove Nomad cluster vars (`nomad_server_bootstrap_expect`, `nomad_server_ips`) from `generateGroupVars()` in iac/cli/generators/ansible.go
+- [X] T016 [US6] Remove `nomad_address` variable generation from `generateHostTfvars()` in iac/cli/generators/terraform.go
 
 ### Update Go CLI Commands (Remove Nomad References)
 
-- [ ] T017 Remove `GenerateNomadJobs` call and `nomad job run` execution from `deployApp()` in iac/cli/cmd/deploy_app.go (stub with Ansible playbook call placeholder)
-- [ ] T018 Remove `GenerateNomadJobs` call and `nomad job run` execution from `deployProxy()` in iac/cli/cmd/deploy_proxy.go (stub with Ansible playbook call placeholder)
-- [ ] T019 Remove `GenerateNomadJobs` call from `provisionHost()` in iac/cli/cmd/provision.go and remove Nomad status message
-- [ ] T020 Replace `printNomadJobs()` function with `printContainerStatus()` stub in iac/cli/cmd/status.go
-- [ ] T021 Rewrite `updateStatus()` in iac/cli/cmd/update_status.go to stub SSH-based systemd timer query instead of Nomad API
-- [ ] T022 Remove `trigger`, `enable`, `disable` subcommand routing from `Update()` in iac/cli/cmd/update.go
-- [ ] T023 Remove Nomad references from usage text and routing in iac/cli/main.go
-- [ ] T024 Remove Nomad reference from completion message in iac/cli/cmd/teardown.go (line 44: "All VMs and Nomad jobs destroyed")
+- [X] T017 Remove `GenerateNomadJobs` call and `nomad job run` execution from `deployApp()` in iac/cli/cmd/deploy_app.go (stub with Ansible playbook call placeholder)
+- [X] T018 Remove `GenerateNomadJobs` call and `nomad job run` execution from `deployProxy()` in iac/cli/cmd/deploy_proxy.go (stub with Ansible playbook call placeholder)
+- [X] T019 Remove `GenerateNomadJobs` call from `provisionHost()` in iac/cli/cmd/provision.go and remove Nomad status message
+- [X] T020 Replace `printNomadJobs()` function with `printContainerStatus()` stub in iac/cli/cmd/status.go
+- [X] T021 Rewrite `updateStatus()` in iac/cli/cmd/update_status.go to stub SSH-based systemd timer query instead of Nomad API
+- [X] T022 Remove `trigger`, `enable`, `disable` subcommand routing from `Update()` in iac/cli/cmd/update.go
+- [X] T023 Remove Nomad references from usage text and routing in iac/cli/main.go
+- [X] T024 Remove Nomad reference from completion message in iac/cli/cmd/teardown.go (line 44: "All VMs and Nomad jobs destroyed")
 
 ### Update Ansible (Remove Nomad)
 
-- [ ] T025 Remove Nomad client installation tasks (lines 72-111) and Nomad UFW rule (lines 25-29) from iac/ansible/roles/vm-guest/tasks/main.yml
-- [ ] T026 Delete Nomad client template at iac/ansible/roles/vm-guest/templates/nomad-client.hcl.j2
-- [ ] T027 Remove `nomad` role inclusion (lines 24-26) from iac/ansible/playbooks/provision-host.yml and update comments
+- [X] T025 Remove Nomad client installation tasks (lines 72-111) and Nomad UFW rule (lines 25-29) from iac/ansible/roles/vm-guest/tasks/main.yml
+- [X] T026 Delete Nomad client template at iac/ansible/roles/vm-guest/templates/nomad-client.hcl.j2
+- [X] T027 Remove `nomad` role inclusion (lines 24-26) from iac/ansible/playbooks/provision-host.yml and update comments
 
 ### Verify Compilation
 
-- [ ] T028 Verify Go CLI compiles cleanly with `cd iac/cli && go build ./...`
+- [X] T028 Verify Go CLI compiles cleanly with `cd iac/cli && go build ./...`
 
 **Checkpoint**: All Nomad code is removed. Go compiles cleanly. Config schema is updated (US5). No Nomad processes will run (US6). Foundation ready for new container deployment code.
 
@@ -86,27 +86,27 @@
 
 ### Ansible Roles
 
-- [ ] T029 [P] [US2] Create `app-container` role defaults at iac/ansible/roles/app-container/defaults/main.yml with default app config variables
-- [ ] T030 [P] [US2] Create `app-container` role tasks at iac/ansible/roles/app-container/tasks/main.yml using `community.docker.docker_image_pull` and `community.docker.docker_container` with read_only, restart_policy, volumes, ports
-- [ ] T031 [US2] Create per-container run script template at iac/ansible/roles/app-container/templates/run-app.sh.j2 defining full `docker run` invocation for auto-updater use
-- [ ] T032 [P] [US2] Create `proxy-container` role defaults at iac/ansible/roles/proxy-container/defaults/main.yml with Traefik config variables
-- [ ] T033 [P] [US2] Create `proxy-container` role tasks at iac/ansible/roles/proxy-container/tasks/main.yml using `docker_image_pull` and `docker_container` for Traefik
-- [ ] T034 [US2] Create Traefik static config template at iac/ansible/roles/proxy-container/templates/traefik.yml.j2 with entrypoints and provider config
-- [ ] T035 [US2] Create proxy run script template at iac/ansible/roles/proxy-container/templates/run-proxy.sh.j2
+- [X] T029 [P] [US2] Create `app-container` role defaults at iac/ansible/roles/app-container/defaults/main.yml with default app config variables
+- [X] T030 [P] [US2] Create `app-container` role tasks at iac/ansible/roles/app-container/tasks/main.yml using `community.docker.docker_image_pull` and `community.docker.docker_container` with read_only, restart_policy, volumes, ports
+- [X] T031 [US2] Create per-container run script template at iac/ansible/roles/app-container/templates/run-app.sh.j2 defining full `docker run` invocation for auto-updater use
+- [X] T032 [P] [US2] Create `proxy-container` role defaults at iac/ansible/roles/proxy-container/defaults/main.yml with Traefik config variables
+- [X] T033 [P] [US2] Create `proxy-container` role tasks at iac/ansible/roles/proxy-container/tasks/main.yml using `docker_image_pull` and `docker_container` for Traefik
+- [X] T034 [US2] Create Traefik static config template at iac/ansible/roles/proxy-container/templates/traefik.yml.j2 with entrypoints and provider config
+- [X] T035 [US2] Create proxy run script template at iac/ansible/roles/proxy-container/templates/run-proxy.sh.j2
 
 ### Ansible Playbooks
 
-- [ ] T036 [P] [US2] Create deploy-app playbook at iac/ansible/playbooks/deploy-app.yml targeting VM hosts, applying app-container role with app-specific extra vars
-- [ ] T037 [P] [US2] Create deploy-proxy playbook at iac/ansible/playbooks/deploy-proxy.yml targeting VM hosts, applying proxy-container role
+- [X] T036 [P] [US2] Create deploy-app playbook at iac/ansible/playbooks/deploy-app.yml targeting VM hosts, applying app-container role with app-specific extra vars
+- [X] T037 [P] [US2] Create deploy-proxy playbook at iac/ansible/playbooks/deploy-proxy.yml targeting VM hosts, applying proxy-container role
 
 ### Go CLI Updates
 
-- [ ] T038 [US2] Implement `deployApp()` in iac/cli/cmd/deploy_app.go to run `ansible-playbook deploy-app.yml` with extra vars for app name, image, port, storage paths
-- [ ] T039 [US2] Implement `deployProxy()` in iac/cli/cmd/deploy_proxy.go to run `ansible-playbook deploy-proxy.yml`
+- [X] T038 [US2] Implement `deployApp()` in iac/cli/cmd/deploy_app.go to run `ansible-playbook deploy-app.yml` with extra vars for app name, image, port, storage paths
+- [X] T039 [US2] Implement `deployProxy()` in iac/cli/cmd/deploy_proxy.go to run `ansible-playbook deploy-proxy.yml`
 
 ### Build Verification
 
-- [ ] T040 [US2] Verify Go CLI compiles cleanly with `cd iac/cli && go build ./...`
+- [X] T040 [US2] Verify Go CLI compiles cleanly with `cd iac/cli && go build ./...`
 
 **Checkpoint**: `iac deploy app --name <app>` and `iac deploy proxy` work via Ansible. Containers run with read-only root, unless-stopped restart, proper volumes and ports.
 
@@ -120,9 +120,9 @@
 
 ### Verification
 
-- [ ] T041 [US1] Verify `iac/ansible/playbooks/provision-host.yml` no longer references Nomad role and still includes all other roles (hardening, hypervisor, nat-network, vm-create, vm-guest, wireguard)
-- [ ] T042 [US1] Verify `iac/cli/cmd/deploy_vpn.go` has no Nomad references (should already be clean)
-- [ ] T043 [US1] Verify provision.go workflow outputs correct status messages without Nomad references
+- [X] T041 [US1] Verify `iac/ansible/playbooks/provision-host.yml` no longer references Nomad role and still includes all other roles (hardening, hypervisor, nat-network, vm-create, vm-guest, wireguard)
+- [X] T042 [US1] Verify `iac/cli/cmd/deploy_vpn.go` has no Nomad references (should already be clean)
+- [X] T043 [US1] Verify provision.go workflow outputs correct status messages without Nomad references
 
 **Checkpoint**: Host provisioning and VPN deployment work end-to-end without Nomad. WireGuard is deployed on the designated host.
 
@@ -136,8 +136,8 @@
 
 ### Verification
 
-- [ ] T044 [US5] Update homelab.yml example at iac/cli/homelab.yml to remove `cluster.datacenter` field and `auto_update.auto_revert`/`health_check_timeout` fields
-- [ ] T045 [US5] Verify `iac generate` does not produce `.generated/nomad/` output (remove any code that creates this directory)
+- [X] T044 [US5] Update homelab.yml example at iac/cli/homelab.yml to remove `cluster.datacenter` field and `auto_update.auto_revert`/`health_check_timeout` fields
+- [X] T045 [US5] Verify `iac generate` does not produce `.generated/nomad/` output (remove any code that creates this directory)
 
 **Checkpoint**: Single config file generates all tool-specific configs correctly without any Nomad artifacts.
 
@@ -151,8 +151,8 @@
 
 ### Implementation
 
-- [ ] T046 [US6] Implement `printContainerStatus()` in iac/cli/cmd/status.go to query Docker container status via SSH (`docker ps --format` on each VM)
-- [ ] T047 [US6] Update `Status()` in iac/cli/cmd/status.go to call `printContainerStatus()` and display container table (name, image, status, ports, restart policy)
+- [X] T046 [US6] Implement `printContainerStatus()` in iac/cli/cmd/status.go to query Docker container status via SSH (`docker ps --format` on each VM)
+- [X] T047 [US6] Update `Status()` in iac/cli/cmd/status.go to call `printContainerStatus()` and display container table (name, image, status, ports, restart policy)
 
 **Checkpoint**: `iac status` shows Docker containers instead of Nomad jobs. No scheduler overhead.
 
@@ -166,26 +166,26 @@
 
 ### Ansible Role
 
-- [ ] T048 [P] [US4] Create auto-updater role defaults at iac/ansible/roles/auto-updater/defaults/main.yml with schedule, container list, script path defaults
-- [ ] T049 [US4] Create update script template at iac/ansible/roles/auto-updater/templates/update-containers.sh.j2 that iterates containers, pulls images, compares digests, recreates via run scripts
-- [ ] T050 [P] [US4] Create systemd service unit template at iac/ansible/roles/auto-updater/templates/homelab-updater.service.j2
-- [ ] T051 [P] [US4] Create systemd timer unit template at iac/ansible/roles/auto-updater/templates/homelab-updater.timer.j2 with Persistent=true
-- [ ] T052 [US4] Create auto-updater role tasks at iac/ansible/roles/auto-updater/tasks/main.yml to template script and units, enable timer
+- [X] T048 [P] [US4] Create auto-updater role defaults at iac/ansible/roles/auto-updater/defaults/main.yml with schedule, container list, script path defaults
+- [X] T049 [US4] Create update script template at iac/ansible/roles/auto-updater/templates/update-containers.sh.j2 that iterates containers, pulls images, compares digests, recreates via run scripts
+- [X] T050 [P] [US4] Create systemd service unit template at iac/ansible/roles/auto-updater/templates/homelab-updater.service.j2
+- [X] T051 [P] [US4] Create systemd timer unit template at iac/ansible/roles/auto-updater/templates/homelab-updater.timer.j2 with Persistent=true
+- [X] T052 [US4] Create auto-updater role tasks at iac/ansible/roles/auto-updater/tasks/main.yml to template script and units, enable timer
 
 ### Ansible Playbook
 
-- [ ] T053 [US4] Create deploy-updater playbook at iac/ansible/playbooks/deploy-updater.yml targeting VM hosts, applying auto-updater role
+- [X] T053 [US4] Create deploy-updater playbook at iac/ansible/playbooks/deploy-updater.yml targeting VM hosts, applying auto-updater role
 
 ### Go CLI Updates
 
-- [ ] T054 [US4] Update `deployApp()` in iac/cli/cmd/deploy_app.go to also run deploy-updater.yml when `auto_update.enabled` is true
-- [ ] T055 [US4] Implement `updateStatus()` in iac/cli/cmd/update_status.go to query systemd timer status and recent journald logs via SSH
-- [ ] T056 [US4] Simplify `Update()` routing in iac/cli/cmd/update.go to only support `status` subcommand
-- [ ] T057 [US4] Update `main.go` routing to remove `update trigger`, `update enable`, `update disable` paths if still present
+- [X] T054 [US4] Update `deployApp()` in iac/cli/cmd/deploy_app.go to also run deploy-updater.yml when `auto_update.enabled` is true
+- [X] T055 [US4] Implement `updateStatus()` in iac/cli/cmd/update_status.go to query systemd timer status and recent journald logs via SSH
+- [X] T056 [US4] Simplify `Update()` routing in iac/cli/cmd/update.go to only support `status` subcommand
+- [X] T057 [US4] Update `main.go` routing to remove `update trigger`, `update enable`, `update disable` paths if still present
 
 ### Build Verification
 
-- [ ] T058 [US4] Verify Go CLI compiles cleanly with `cd iac/cli && go build ./...`
+- [X] T058 [US4] Verify Go CLI compiles cleanly with `cd iac/cli && go build ./...`
 
 **Checkpoint**: Auto-updater systemd timer is deployed to VMs. `iac update status` shows timer status and last run. Containers auto-update on schedule.
 
@@ -199,8 +199,8 @@
 
 ### Implementation
 
-- [ ] T059 [US3] Update security audit playbook at iac/ansible/playbooks/security-audit.yml to remove Nomad port 4646 from expected VM ports and add Docker container security checks (read-only root, restart policy, no privileged flag)
-- [ ] T060 [US3] Verify audit.go in iac/cli/cmd/audit.go has no Nomad references
+- [X] T059 [US3] Update security audit playbook at iac/ansible/playbooks/security-audit.yml to remove Nomad port 4646 from expected VM ports and add Docker container security checks (read-only root, restart policy, no privileged flag)
+- [X] T060 [US3] Verify audit.go in iac/cli/cmd/audit.go has no Nomad references
 
 **Checkpoint**: Security audit validates all six defense-in-depth layers without Nomad. Container security posture is verified.
 
@@ -210,11 +210,11 @@
 
 **Purpose**: Final cleanup, documentation, and validation
 
-- [ ] T061 [P] Update README.md to remove Nomad from prerequisites, architecture diagram, and descriptions
-- [ ] T062 [P] Grep entire codebase for remaining "nomad" or "Nomad" references and clean up any stragglers
-- [ ] T063 Final Go build verification with `cd iac/cli && go build ./...`
-- [ ] T064 Verify `.gitignore` does not reference `.generated/nomad/` (clean up if present)
-- [ ] T065 Run quickstart.md validation: verify all CLI commands referenced in quickstart.md are implemented
+- [X] T061 [P] Update README.md to remove Nomad from prerequisites, architecture diagram, and descriptions
+- [X] T062 [P] Grep entire codebase for remaining "nomad" or "Nomad" references and clean up any stragglers
+- [X] T063 Final Go build verification with `cd iac/cli && go build ./...`
+- [X] T064 Verify `.gitignore` does not reference `.generated/nomad/` (clean up if present)
+- [X] T065 Run quickstart.md validation: verify all CLI commands referenced in quickstart.md are implemented
 
 ---
 

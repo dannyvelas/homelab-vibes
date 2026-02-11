@@ -1,0 +1,48 @@
+---
+# Deploy a media application as a Docker container.
+# Uses community.docker collection for idempotent container management.
+
+- name: Pull latest image for {{ app_name }}
+  community.docker.docker_image_pull:
+    name: "{{ app_image }}"
+    pull: always
+  register: image_pull
+
+- name: Create app config directory
+  ansible.builtin.file:
+    path: "{{ config_path }}/{{ app_name }}"
+    state: directory
+    mode: "0755"
+
+- name: Deploy {{ app_name }} container
+  community.docker.docker_container:
+    name: "{{ app_name }}"
+    image: "{{ app_image }}"
+    state: started
+    restart_policy: unless-stopped
+    read_only: true
+    ports:
+      - "{{ app_port }}:{{ app_port }}"
+    volumes:
+      - "{{ config_path }}/{{ app_name }}:/config"
+      - "{{ downloads_path }}:/downloads"
+      - "{{ media_path }}:/media"
+    tmpfs:
+      - /tmp
+    env:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: "UTC"
+    recreate: "{{ image_pull.changed | default(false) }}"
+
+- name: Create run script directory
+  ansible.builtin.file:
+    path: "{{ run_script_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Template per-container run script for {{ app_name }}
+  ansible.builtin.template:
+    src: run-app.sh.j2
+    dest: "{{ run_script_dir }}/run-{{ app_name }}.sh"
+    mode: "0755"

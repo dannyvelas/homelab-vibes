@@ -1,0 +1,10 @@
+---
+# Default values for proxy-container role.
+
+proxy_image: "traefik:v3.0"
+proxy_http_port: 80
+proxy_https_port: 443
+proxy_config_dir: /opt/traefik
+
+# App routing configuration (populated from homelab.yml via extra vars)
+proxy_apps: {}

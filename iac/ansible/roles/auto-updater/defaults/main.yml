@@ -1,0 +1,14 @@
+---
+# Default values for auto-updater role.
+
+# Schedule in systemd calendar format (converted from cron by the iac CLI)
+updater_schedule: "*-*-* 03:00:00"
+
+# Directory containing per-container run scripts
+run_script_dir: /opt/homelab
+
+# Path to the update script
+updater_script_path: /opt/homelab/update-containers.sh
+
+# List of container names to monitor for updates
+updater_containers: []

@@ -296,8 +296,8 @@
   vars:
     audit_home_lan_cidr: "{{ home_lan_cidr | default('192.168.1.0/24') }}"
     audit_wg_interface: "{{ wireguard_interface | default('wg0') }}"
-    # Ports expected on VMs: 22 (SSH), 4646 (Nomad), 443 (reverse proxy)
-    audit_expected_vm_ports: "{{ expected_vm_open_ports | default([22, 443, 4646]) }}"
+    # Ports expected on VMs: 22 (SSH), 443 (reverse proxy)
+    audit_expected_vm_ports: "{{ expected_vm_open_ports | default([22, 443]) }}"
     # Reachable public test targets (DNS + HTTP) to confirm internet access
     audit_internet_dns: "8.8.8.8"
     audit_internet_http: "1.1.1.1"
@@ -401,6 +401,101 @@
       ansible.builtin.debug:
         msg: "Containers with writable root filesystems: {{ writable_containers }}"
       when: writable_containers | length > 0
+
+    # ------------------------------------------------------------------
+    # 3b. Container restart policy check
+    # ------------------------------------------------------------------
+    - name: "Containers | Inspect restart policy for each running container"
+      ansible.builtin.command: >
+        docker inspect --format
+        '{% raw %}{"name":"{{.Name}}","policy":"{{.HostConfig.RestartPolicy.Name}}"}{% endraw %}'
+        {{ item }}
+      register: container_restart_results
+      changed_when: false
+      failed_when: false
+      loop: "{{ running_container_ids.stdout_lines }}"
+      when: running_container_ids.stdout_lines is defined and running_container_ids.stdout_lines | length > 0
+
+    - name: "Containers | Parse restart policy data"
+      ansible.builtin.set_fact:
+        container_restart_data: >-
+          {{
+            container_restart_results.results | default([]) |
+            selectattr('stdout', 'defined') |
+            map(attribute='stdout') |
+            map('from_json') | list
+          }}
+      when: running_container_ids.stdout_lines is defined and running_container_ids.stdout_lines | length > 0
+
+    - name: "Containers | Set empty restart data when no containers"
+      ansible.builtin.set_fact:
+        container_restart_data: []
+      when: running_container_ids.stdout_lines is not defined or running_container_ids.stdout_lines | length == 0
+
+    - name: "Containers | Identify containers without restart policy"
+      ansible.builtin.set_fact:
+        no_restart_containers: >-
+          {{
+            container_restart_data |
+            rejectattr('policy', 'equalto', 'unless-stopped') |
+            rejectattr('policy', 'equalto', 'always') |
+            map(attribute='name') | list
+          }}
+
+    - name: "Containers | Check all containers have restart policy"
+      ansible.builtin.set_fact:
+        check_containers_restart_policy: >-
+          {{
+            (container_restart_data | length == 0) or
+            (no_restart_containers | length == 0)
+          }}
+
+    # ------------------------------------------------------------------
+    # 3c. Container privileged mode check
+    # ------------------------------------------------------------------
+    - name: "Containers | Inspect privileged mode for each running container"
+      ansible.builtin.command: >
+        docker inspect --format
+        '{% raw %}{"name":"{{.Name}}","privileged":{{.HostConfig.Privileged}}}{% endraw %}'
+        {{ item }}
+      register: container_privileged_results
+      changed_when: false
+      failed_when: false
+      loop: "{{ running_container_ids.stdout_lines }}"
+      when: running_container_ids.stdout_lines is defined and running_container_ids.stdout_lines | length > 0
+
+    - name: "Containers | Parse privileged mode data"
+      ansible.builtin.set_fact:
+        container_privileged_data: >-
+          {{
+            container_privileged_results.results | default([]) |
+            selectattr('stdout', 'defined') |
+            map(attribute='stdout') |
+            map('from_json') | list
+          }}
+      when: running_container_ids.stdout_lines is defined and running_container_ids.stdout_lines | length > 0
+
+    - name: "Containers | Set empty privileged data when no containers"
+      ansible.builtin.set_fact:
+        container_privileged_data: []
+      when: running_container_ids.stdout_lines is not defined or running_container_ids.stdout_lines | length == 0
+
+    - name: "Containers | Identify privileged containers"
+      ansible.builtin.set_fact:
+        privileged_containers: >-
+          {{
+            container_privileged_data |
+            selectattr('privileged', 'equalto', true) |
+            map(attribute='name') | list
+          }}
+
+    - name: "Containers | Check no containers run in privileged mode"
+      ansible.builtin.set_fact:
+        check_containers_not_privileged: >-
+          {{
+            (container_privileged_data | length == 0) or
+            (privileged_containers | length == 0)
+          }}
 
     # ------------------------------------------------------------------
     # 4. User privileges (VM)
@@ -531,6 +626,8 @@
           - { check: "SSH PasswordAuth no",               result: "{{ check_vm_ssh_no_password }}" }
           - { check: "SSH PubkeyAuth yes",                result: "{{ check_vm_ssh_pubkey }}" }
           - { check: "All containers read-only root fs",  result: "{{ check_containers_readonly }}" }
+          - { check: "All containers have restart policy", result: "{{ check_containers_restart_policy }}" }
+          - { check: "No containers in privileged mode",  result: "{{ check_containers_not_privileged }}" }
           - { check: "Only root has UID 0",               result: "{{ check_vm_users_uid0 }}" }
           - { check: "Only expected ports open",          result: "{{ check_vm_ports_only_expected }}" }
           - { check: "Internet DNS reachable",            result: "{{ check_vm_internet_dns }}" }
@@ -563,6 +660,16 @@
       ansible.builtin.debug:
         msg: "Containers with writable root filesystems: {{ writable_containers }}"
       when: writable_containers | length > 0
+
+    - name: "AUDIT SUMMARY | Print containers without restart policy (if any)"
+      ansible.builtin.debug:
+        msg: "Containers without restart policy: {{ no_restart_containers }}"
+      when: no_restart_containers | length > 0
+
+    - name: "AUDIT SUMMARY | Print privileged containers (if any)"
+      ansible.builtin.debug:
+        msg: "Privileged containers detected: {{ privileged_containers }}"
+      when: privileged_containers | length > 0
 
     - name: "AUDIT SUMMARY | Overall VM result"
       ansible.builtin.debug:

@@ -1,0 +1,17 @@
+---
+# Deploy a media application container to workload VMs.
+#
+# Usage (invoked by `iac deploy app --name <app>`):
+#   ansible-playbook -i .generated/ansible/inventory/hosts.yml \
+#     iac/ansible/playbooks/deploy-app.yml \
+#     -e app_name=plex -e app_image=linuxserver/plex:latest -e app_port=32400 \
+#     -e media_path=/mnt/media -e downloads_path=/mnt/downloads -e config_path=/mnt/config
+
+- name: Deploy media application
+  hosts: vms
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: app-container
+      tags: [app]
