@@ -1,5 +1,21 @@
-fixes:
-- [ ] fix `findRepoRoot` function, doesn't actually find repo root. doesn't work if you run it inside of iac/cli directory. returns `"/Users/dannyvelasquez/RemoteGit/MyGithub/homelab-vibe/iac/cli"` instead of `"/Users/dannyvelasquez/RemoteGit/MyGithub/homelab-vibe/"`.
+better differences:
+
+maybe better, maybe worse differences:
+- creating `group_vars` directory with variables for ansible instead of passing in variables via command line via json
+- creating `*.tfvars` files for terraform instead of passing in variables via command line
+- my project has a more granular CLI, where to set up something that under-the-hood necessitates both terraform and ansible logic, you would have to run one or more commands for terraform `iac terraform ...args` and one or more commands for ansible `iac ansible ...args`. if you wanted to have one command that sets up everything under-the-hood you would have to use a task orchestrator like Taskfile or makefile as a layer of abstraction. this AI project wrote the code so that you don't have the same granular control which would allow you to only run only the terraform part of setting something up. it only allows you to set up the full thing `iac provision ....`
+
+worse differences:
+- [ ] business requirement: being able to build iac easily. right now the instructions require you to cd into iac/cli, build, and then cd back out. this is annoying. 
+  - add a taskfile with a task that has the command in the README. that way all you have to do is execute one task command and it will cd, build the binary, and cd back for you.
+    - PROBLEM: actually the command in the README is broken. it creates the binary in the `iac` folder instead of in the root of the repo. so we could do this but the command would need to be fixed
+    - PROBLEM:  `go run` and `dlv debug` won't work at all; they will fail at the root of the project because the root of the project is not a go module. they will fail at the root of the go project because the code isn't designed to work unless you run it from the root of the project. for delve, you would have to compile first in the root of the go project and then use `dlv exec` in the root of the go repo, which is less-than-ideal.
+  - fix code so that it can be run from either directory
+    - PROBLEM: this will make `go run` and `dlv debug` work at the root of the go repo. but, they will still continue not working if this is run from the root of the project. this is because the root of the project is not a go module.
+  - make go code just be at the top-level
+- [ ] homelab.yml.example exists in root of project and also one exists in root of go repo. this is unnecessary duplication
+- [ ] i don't like how some flags are optional and others are required list for `provision` `--host` is required but `--config` is optional. not intuitive which flags need to be passed in
+- [ ] the way that it's changing the ssh permissions is suboptimal. its doing regex search and replace on `/etc/ssh/sshd_config` instead of just creating a new file that will get priority
 
 future:
 - [ ] add some TACO software (like terraform enterprise, scalr, spacelift, env0) so that terraform repo is always the absolute source of truth
