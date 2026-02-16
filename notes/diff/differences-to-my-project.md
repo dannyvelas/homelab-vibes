@@ -6,6 +6,7 @@ better differences:
 - seems to have more firewall rules
 - split responsibility of creating VM and creating plex. in my project, creating a VM was the responsibility of the plex playbook. here, creating VMs is always the responsibility of the "configure host" playbook. the plex playbook just has to find the vm and install itself in it, like in k8s
 - using wireguard instead of tailscale
+- using a reverse proxy like Traefik
 
 maybe better, maybe worse differences:
 - creating `group_vars` directory with variables for ansible instead of passing in variables via command line via json
