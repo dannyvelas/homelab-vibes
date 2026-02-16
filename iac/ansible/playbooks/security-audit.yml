@@ -33,7 +33,6 @@
     audit_expected_open_ports: "{{ expected_open_ports | default([22, 443]) }}"
 
   tasks:
-
     # ------------------------------------------------------------------
     # 1. UFW status
     # ------------------------------------------------------------------
@@ -118,7 +117,7 @@
     # 4. User privileges
     # ------------------------------------------------------------------
     - name: "Users | Find users with UID 0 (root equivalents)"
-      ansible.builtin.command: awk -F: '$3 == 0 {print $1}' /etc/passwd
+      ansible.builtin.command: "awk -F: '$3 == 0 {print $1}' /etc/passwd"
       register: uid0_users_raw
       changed_when: false
       failed_when: false
@@ -230,19 +229,49 @@
     - name: "AUDIT SUMMARY | Build host audit results"
       ansible.builtin.set_fact:
         host_audit_results:
-          - { check: "UFW active",                 result: "{{ check_ufw_active }}" }
-          - { check: "UFW default deny incoming",  result: "{{ check_ufw_default_deny }}" }
-          - { check: "SSH PermitRootLogin no",      result: "{{ check_ssh_no_root }}" }
-          - { check: "SSH PasswordAuth no",         result: "{{ check_ssh_no_password }}" }
-          - { check: "SSH PubkeyAuth yes",          result: "{{ check_ssh_pubkey }}" }
-          - { check: "iptables NAT masquerade",     result: "{{ check_iptables_masquerade }}" }
-          - { check: "iptables egress block LAN",   result: "{{ check_iptables_egress_block }}" }
-          - { check: "iptables DNAT port-forward",  result: "{{ check_iptables_dnat }}" }
-          - { check: "Only root has UID 0",         result: "{{ check_users_uid0 }}" }
-          - { check: "Service user check ran OK",   result: "{{ check_users_service_nonroot }}" }
-          - { check: "Only expected ports open",    result: "{{ check_ports_only_expected }}" }
-          - { check: "WireGuard interface up",      result: "{{ check_wg_interface_up }}" }
-          - { check: "WireGuard listen port set",   result: "{{ check_wg_listen_port }}" }
+          - { check: "UFW active", result: "{{ check_ufw_active }}" }
+          - {
+              check: "UFW default deny incoming",
+              result: "{{ check_ufw_default_deny }}",
+            }
+          - {
+              check: "SSH PermitRootLogin no",
+              result: "{{ check_ssh_no_root }}",
+            }
+          - {
+              check: "SSH PasswordAuth no",
+              result: "{{ check_ssh_no_password }}",
+            }
+          - { check: "SSH PubkeyAuth yes", result: "{{ check_ssh_pubkey }}" }
+          - {
+              check: "iptables NAT masquerade",
+              result: "{{ check_iptables_masquerade }}",
+            }
+          - {
+              check: "iptables egress block LAN",
+              result: "{{ check_iptables_egress_block }}",
+            }
+          - {
+              check: "iptables DNAT port-forward",
+              result: "{{ check_iptables_dnat }}",
+            }
+          - { check: "Only root has UID 0", result: "{{ check_users_uid0 }}" }
+          - {
+              check: "Service user check ran OK",
+              result: "{{ check_users_service_nonroot }}",
+            }
+          - {
+              check: "Only expected ports open",
+              result: "{{ check_ports_only_expected }}",
+            }
+          - {
+              check: "WireGuard interface up",
+              result: "{{ check_wg_interface_up }}",
+            }
+          - {
+              check: "WireGuard listen port set",
+              result: "{{ check_wg_listen_port }}",
+            }
 
     - name: "AUDIT SUMMARY | Print host pass/fail table"
       ansible.builtin.debug:
@@ -284,7 +313,6 @@
           Review the summary above.
       when: host_audit_failures | int > 0
 
-
 # ---------------------------------------------------------------------------
 # PLAY 2: Security audit of workload VMs
 # ---------------------------------------------------------------------------
@@ -305,7 +333,6 @@
     audit_lan_test_ip: "{{ home_lan_test_ip | default('192.168.1.1') }}"
 
   tasks:
-
     # ------------------------------------------------------------------
     # 1. UFW status (VM)
     # ------------------------------------------------------------------
@@ -501,7 +528,7 @@
     # 4. User privileges (VM)
     # ------------------------------------------------------------------
     - name: "Users | Find UID-0 users on VM"
-      ansible.builtin.command: awk -F: '$3 == 0 {print $1}' /etc/passwd
+      ansible.builtin.command: "awk -F: '$3 == 0 {print $1}' /etc/passwd"
       register: vm_uid0_users_raw
       changed_when: false
       failed_when: false
@@ -620,20 +647,53 @@
     - name: "AUDIT SUMMARY | Build VM audit results"
       ansible.builtin.set_fact:
         vm_audit_results:
-          - { check: "UFW active",                       result: "{{ check_vm_ufw_active }}" }
-          - { check: "UFW default deny incoming",        result: "{{ check_vm_ufw_default_deny }}" }
-          - { check: "SSH PermitRootLogin no",            result: "{{ check_vm_ssh_no_root }}" }
-          - { check: "SSH PasswordAuth no",               result: "{{ check_vm_ssh_no_password }}" }
-          - { check: "SSH PubkeyAuth yes",                result: "{{ check_vm_ssh_pubkey }}" }
-          - { check: "All containers read-only root fs",  result: "{{ check_containers_readonly }}" }
-          - { check: "All containers have restart policy", result: "{{ check_containers_restart_policy }}" }
-          - { check: "No containers in privileged mode",  result: "{{ check_containers_not_privileged }}" }
-          - { check: "Only root has UID 0",               result: "{{ check_vm_users_uid0 }}" }
-          - { check: "Only expected ports open",          result: "{{ check_vm_ports_only_expected }}" }
-          - { check: "Internet DNS reachable",            result: "{{ check_vm_internet_dns }}" }
-          - { check: "Internet HTTP reachable",           result: "{{ check_vm_internet_http }}" }
-          - { check: "Home LAN blocked (egress rule)",    result: "{{ check_vm_lan_blocked }}" }
-          - { check: "WireGuard interface up",            result: "{{ check_vm_wg_up }}" }
+          - { check: "UFW active", result: "{{ check_vm_ufw_active }}" }
+          - {
+              check: "UFW default deny incoming",
+              result: "{{ check_vm_ufw_default_deny }}",
+            }
+          - {
+              check: "SSH PermitRootLogin no",
+              result: "{{ check_vm_ssh_no_root }}",
+            }
+          - {
+              check: "SSH PasswordAuth no",
+              result: "{{ check_vm_ssh_no_password }}",
+            }
+          - { check: "SSH PubkeyAuth yes", result: "{{ check_vm_ssh_pubkey }}" }
+          - {
+              check: "All containers read-only root fs",
+              result: "{{ check_containers_readonly }}",
+            }
+          - {
+              check: "All containers have restart policy",
+              result: "{{ check_containers_restart_policy }}",
+            }
+          - {
+              check: "No containers in privileged mode",
+              result: "{{ check_containers_not_privileged }}",
+            }
+          - {
+              check: "Only root has UID 0",
+              result: "{{ check_vm_users_uid0 }}",
+            }
+          - {
+              check: "Only expected ports open",
+              result: "{{ check_vm_ports_only_expected }}",
+            }
+          - {
+              check: "Internet DNS reachable",
+              result: "{{ check_vm_internet_dns }}",
+            }
+          - {
+              check: "Internet HTTP reachable",
+              result: "{{ check_vm_internet_http }}",
+            }
+          - {
+              check: "Home LAN blocked (egress rule)",
+              result: "{{ check_vm_lan_blocked }}",
+            }
+          - { check: "WireGuard interface up", result: "{{ check_vm_wg_up }}" }
 
     - name: "AUDIT SUMMARY | Print VM pass/fail table"
       ansible.builtin.debug:
