@@ -131,10 +131,6 @@ apps:
     image: linuxserver/bazarr:latest
     port: 6767
 
-auto_update:
-  enabled: true
-  schedule: "0 3 * * *"           # daily at 3 AM UTC
-
 secrets:
   ssh_key_path: ~/.ssh/id_ed25519
   ssh_user: admin
@@ -200,14 +196,6 @@ After deployment, access apps from the home LAN (or over VPN):
 | Radarr | `http://<host-ip>:7878`         |
 | Bazarr | `http://<host-ip>:6767`         |
 
-### Manage auto-updates
-
-Apps are updated automatically by a systemd timer that compares Docker image digests and recreates containers when a new image is available.
-
-```bash
-iac update status            # show update status for all hosts
-```
-
 ### Tear down
 
 ```bash
@@ -227,7 +215,6 @@ Commands:
   generate configs     Generate all tool-specific configs from homelab.yml
   generate vpn-client  Generate a WireGuard client config
   status               Show cluster status (hosts, containers, VPN)
-  update status        Show auto-update status for all hosts
   audit security       Run security audit across all infrastructure
   teardown             Tear down all VMs
   version              Print version
@@ -248,10 +235,9 @@ iac/
     wireguard/               # WireGuard key/peer management
   ansible/
     playbooks/               # setup-host, configure-vm, deploy-app,
-                             # deploy-proxy, deploy-vpn, deploy-updater,
-                             # security-audit
+                             # deploy-proxy, deploy-vpn, security-audit
     roles/                   # hardening, hypervisor, vm-guest, wireguard,
-                             # app-container, proxy-container, auto-updater
+                             # app-container, proxy-container
   terraform/                 # libvirt VM lifecycle
 tests/
   integration/               # e2e deployment test script

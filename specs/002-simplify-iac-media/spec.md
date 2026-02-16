@@ -9,7 +9,7 @@
 
 The previous implementation (001-iac-homelab-media) introduced a container scheduler to manage application workloads. While a scheduler provides automatic workload placement and multi-node scheduling, these capabilities are unnecessary for a homelab with 2-3 servers running four known applications with predetermined placement. The scheduler consumes significant RAM per host and adds operational complexity (cluster formation, consensus protocols, join configuration) that outweighs its benefits at this scale.
 
-This feature removes the container scheduler and replaces it with direct container management, where the provisioning tool manages containers on each VM without an intermediary. All other functionality — VPN, defense-in-depth security, auto-updates, single config file, portability — is retained unchanged.
+This feature removes the container scheduler and replaces it with direct container management, where the provisioning tool manages containers on each VM without an intermediary. All other functionality — VPN, defense-in-depth security, single config file, portability — is retained unchanged. Auto-updates are deferred to a future implementation when a container scheduler (Nomad or k3s) is introduced.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -60,19 +60,9 @@ The entire infrastructure, including the host OS, network, and deployed applicat
 
 ---
 
-### User Story 4 - Media Applications Automatically Update to Latest Versions (Priority: P2)
+### User Story 4 - Media Applications Automatically Update to Latest Versions (Priority: P2) — DEFERRED
 
-Deployed media applications (Plex, Sonarr, Radarr, Bazarr) automatically detect and apply new version updates without requiring manual intervention from an engineer. The update process preserves application data and configuration. Applications remain available during the update with minimal downtime.
-
-**Why this priority**: Keeping applications up-to-date is critical for security (patching vulnerabilities) and functionality (new features, bug fixes). Automating this removes ongoing maintenance burden from the engineering team.
-
-**Independent Test**: Deploy a media application at a known version. Wait for or simulate a new version release. Verify that the application is automatically updated to the new version, that its data and configuration are preserved, and that it remains accessible after the update.
-
-**Acceptance Scenarios**:
-
-1.  **Given** a media application is deployed and running, **When** a new version of that application is released, **Then** the system automatically updates the application to the new version within 24 hours.
-2.  **Given** an automatic update is in progress, **When** the update completes, **Then** all application data (libraries, settings, databases) is preserved and the application is fully functional.
-3.  **Given** an automatic update fails (e.g., new version crashes on startup), **When** the failure is detected, **Then** the system rolls back to the previous working version automatically.
+> **Status**: Deferred to a future implementation. Auto-updates will be re-introduced when migrating to a container scheduler (Nomad or k3s) that provides built-in rolling update and rollback capabilities. Until then, updates are performed manually by re-running `iac deploy app`.
 
 ---
 
@@ -134,7 +124,7 @@ The system achieves the same functionality as the previous implementation while 
 - **FR-009**: System MUST prevent lateral movement from compromised applications to other network devices.
 - **FR-010**: The infrastructure as code solution MUST be reusable and portable for future migration to different bare-metal servers.
 - **FR-011**: The setup and deployment processes MUST provide an automated, easy, and quick user experience for an engineer.
-- **FR-012**: Deployed media applications MUST be automatically updated to the latest version when a new release is available, without manual intervention from the engineer. Failed updates MUST be automatically rolled back.
+- **FR-012**: ~~Deployed media applications MUST be automatically updated to the latest version when a new release is available, without manual intervention from the engineer. Failed updates MUST be automatically rolled back.~~ *DEFERRED — will be re-introduced with a container scheduler (Nomad or k3s).*
 - **FR-013**: The system MUST provide a single source of truth for all infrastructure and application configuration. Engineers MUST NOT need to duplicate or synchronize configuration values across multiple tools or files.
 - **FR-014**: Application containers MUST be managed directly by the provisioning tool without an intermediary container scheduler, to minimize resource overhead and operational complexity.
 - **FR-015**: Application containers MUST automatically restart on failure or host reboot without requiring a scheduler.
@@ -165,6 +155,6 @@ The system achieves the same functionality as the previous implementation while 
 - **SC-004**: A security audit reports zero critical or high-severity vulnerabilities directly attributable to misconfigurations or lack of isolation in the deployed infrastructure or applications.
 - **SC-005**: All deployed applications run within isolated environments (containers inside VMs) with restricted network access, achieving a minimal attack surface.
 - **SC-006**: The IaC codebase can be executed on a separate bare-metal environment (simulating future migration) and successfully reproduce the identical infrastructure setup.
-- **SC-007**: All deployed media applications are automatically updated to the latest version within 24 hours of a new release, with zero data loss and automatic rollback on failure.
+- **SC-007**: ~~All deployed media applications are automatically updated to the latest version within 24 hours of a new release, with zero data loss and automatic rollback on failure.~~ *DEFERRED.*
 - **SC-008**: An engineer can change any shared configuration value (e.g., server IP, storage path) in exactly one location, and all affected infrastructure and application components reflect the change on the next deployment run.
 - **SC-009**: Infrastructure overhead (excluding application containers) consumes at least 500 MB less RAM per host compared to the previous scheduler-based implementation.

@@ -49,10 +49,6 @@ apps:
     image: linuxserver/bazarr:latest
     port: 6767
 
-auto_update:
-  enabled: true
-  schedule: "0 3 * * *"         # Cron expression: daily at 3 AM
-
 secrets:
   ssh_key_path: ~/.ssh/id_ed25519 # Path to SSH private key
   ssh_user: admin                 # SSH user for server access

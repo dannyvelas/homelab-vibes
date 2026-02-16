@@ -1,8 +1,0 @@
-[Unit]
-Description=Homelab container auto-updater
-Wants=docker.service
-After=docker.service
-
-[Service]
-Type=oneshot
-ExecStart={{ updater_script_path }}

@@ -28,7 +28,7 @@ go vet ./...                    # Lint
 Go: Follow standard conventions (gofmt, go vet)
 
 ## Recent Changes
-- 002-simplify-iac-media: Removed Nomad, replaced with Ansible docker_container module + systemd timer for auto-updates
+- 002-simplify-iac-media: Removed Nomad, replaced with Ansible docker_container module
 - 001-iac-homelab-media: Initial IaC implementation with Go CLI, Ansible, Terraform, KVM/libvirt, Docker
 
 <!-- MANUAL ADDITIONS START -->

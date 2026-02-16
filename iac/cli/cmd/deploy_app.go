@@ -64,23 +64,9 @@ func deployApp(args []string) error {
 		return fmt.Errorf("ansible-playbook deploy-app: %w", err)
 	}
 
-	// Deploy auto-updater if enabled
-	if cfg.AutoUpdate.Enabled {
-		updaterPlaybook := filepath.Join(repoRoot, "iac", "ansible", "playbooks", "deploy-updater.yml")
-		if err := runCommand(repoRoot, "ansible-playbook",
-			"-i", inventoryFile,
-			updaterPlaybook,
-		); err != nil {
-			return fmt.Errorf("ansible-playbook deploy-updater: %w", err)
-		}
-	}
-
 	fmt.Printf("\n%s deployed!\n", *appName)
 	fmt.Printf("  Image: %s\n", app.Image)
 	fmt.Printf("  Port: %d\n", app.Port)
-	if cfg.AutoUpdate.Enabled {
-		fmt.Printf("  Auto-update: enabled (schedule: %s)\n", cfg.AutoUpdate.Schedule)
-	}
 
 	return nil
 }

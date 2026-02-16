@@ -86,11 +86,7 @@ func generateHostTfvars(cfg *config.Config, hostName string, hostCfg config.Host
 		sb.WriteString(fmt.Sprintf("    port = %d\n", appCfg.Port))
 		sb.WriteString("  }\n")
 	}
-	sb.WriteString("}\n\n")
-
-	// Auto-update configuration
-	sb.WriteString(fmt.Sprintf("auto_update_enabled = %t\n", cfg.AutoUpdate.Enabled))
-	sb.WriteString(fmt.Sprintf("auto_update_schedule = %q\n", cfg.AutoUpdate.Schedule))
+	sb.WriteString("}\n")
 
 	return sb.String()
 }

@@ -174,13 +174,6 @@ else
 fi
 
 # ----------------------------------------------------------
-# 9. Auto-update status
-# ----------------------------------------------------------
-log_step "Step 9: Auto-update status"
-
-$IAC update status --config "$CONFIG" 2>&1 && log_pass "Update status check" || log_fail "Update status failed"
-
-# ----------------------------------------------------------
 # Summary
 # ----------------------------------------------------------
 log_step "E2E Test Summary"

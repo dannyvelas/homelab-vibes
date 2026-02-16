@@ -13,9 +13,8 @@ type Config struct {
 	Hosts      map[string]HostConfig  `yaml:"hosts"`
 	VPN        VPNConfig              `yaml:"vpn"`
 	Storage    StorageConfig          `yaml:"storage"`
-	Apps       map[string]AppConfig   `yaml:"apps"`
-	AutoUpdate AutoUpdateConfig       `yaml:"auto_update"`
-	Secrets    SecretsConfig          `yaml:"secrets"`
+	Apps    map[string]AppConfig `yaml:"apps"`
+	Secrets SecretsConfig        `yaml:"secrets"`
 }
 
 type ClusterConfig struct {
@@ -47,11 +46,6 @@ type AppConfig struct {
 	Port    int    `yaml:"port"`
 }
 
-type AutoUpdateConfig struct {
-	Enabled  bool   `yaml:"enabled"`
-	Schedule string `yaml:"schedule"`
-}
-
 type SecretsConfig struct {
 	SSHKeyPath string `yaml:"ssh_key_path"`
 	SSHUser    string `yaml:"ssh_user"`
@@ -79,9 +73,6 @@ func Load(path string) (*Config, error) {
 func (c *Config) applyDefaults() {
 	if c.VPN.Port == 0 {
 		c.VPN.Port = 51820
-	}
-	if c.AutoUpdate.Schedule == "" {
-		c.AutoUpdate.Schedule = "0 3 * * *"
 	}
 	if c.Secrets.SSHUser == "" {
 		c.Secrets.SSHUser = "admin"

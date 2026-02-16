@@ -38,11 +38,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-	case "update":
-		if err := cmd.Update(os.Args[2:]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
 	case "audit":
 		if err := cmd.Audit(os.Args[2:]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -77,7 +72,6 @@ Commands:
   generate vpn-client  Generate a WireGuard client config
   generate configs  Regenerate all tool-specific configs from homelab.yml
   status            Show cluster status (hosts, containers, VPN)
-  update status     Show auto-update status for all apps
   audit security    Run security audit across all infrastructure
   teardown          Tear down all VMs
 

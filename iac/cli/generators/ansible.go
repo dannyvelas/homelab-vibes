@@ -103,12 +103,7 @@ func generateGroupVars(cfg *config.Config, outputDir string) error {
 			sb.WriteString(fmt.Sprintf("  - %s\n", route))
 		}
 	}
-	sb.WriteString("\n")
 
-	// Auto-update configuration
-	sb.WriteString("# Auto-Update Configuration\n")
-	sb.WriteString(fmt.Sprintf("auto_update_enabled: %t\n", cfg.AutoUpdate.Enabled))
-	sb.WriteString(fmt.Sprintf("auto_update_schedule: \"%s\"\n", cfg.AutoUpdate.Schedule))
 
 	// Write to file
 	groupVarsPath := filepath.Join(groupVarsDir, "all.yml")
