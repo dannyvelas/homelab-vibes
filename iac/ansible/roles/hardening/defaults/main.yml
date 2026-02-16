@@ -35,10 +35,10 @@ home_lan_cidr: 192.168.1.0/24
 nat_ingress_rules:
   - { host_port: 443, vm_port: 443, proto: tcp, comment: "HTTPS to reverse proxy" }
 
-# Egress allowed destinations from VM (everything else is blocked)
+# Egress allowed from VM subnet (everything else is blocked by default forward DROP)
 nat_egress_allowed:
-  - { dest: "0.0.0.0/0", port: 80, proto: tcp, comment: "HTTP (media downloads)" }
-  - { dest: "0.0.0.0/0", port: 443, proto: tcp, comment: "HTTPS (media downloads)" }
-  - { dest: "0.0.0.0/0", port: 53, proto: udp, comment: "DNS" }
-  - { dest: "0.0.0.0/0", port: 53, proto: tcp, comment: "DNS over TCP" }
-  - { dest: "0.0.0.0/0", port: 123, proto: udp, comment: "NTP" }
+  - { port: 80, proto: tcp, comment: "HTTP (media downloads)" }
+  - { port: 443, proto: tcp, comment: "HTTPS (media downloads)" }
+  - { port: 53, proto: udp, comment: "DNS" }
+  - { port: 53, proto: tcp, comment: "DNS over TCP" }
+  - { port: 123, proto: udp, comment: "NTP" }
