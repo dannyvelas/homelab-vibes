@@ -5,6 +5,7 @@ better differences:
 - used raw iptable logic instead of just ufw
 - seems to have more firewall rules
 - split responsibility of creating VM and creating plex. in my project, creating a VM was the responsibility of the plex playbook. here, creating VMs is always the responsibility of the "configure host" playbook. the plex playbook just has to find the vm and install itself in it, like in k8s
+- using wireguard instead of tailscale
 
 maybe better, maybe worse differences:
 - creating `group_vars` directory with variables for ansible instead of passing in variables via command line via json
@@ -35,6 +36,7 @@ worse differences:
 - [ ] doesn't switch to a random port
 - [ ] doesn't email when an update happens
 - [ ] doesn't create SSH user for VM
+- [ ] the CLI might be broken. it looks like it asks you to set up one VM at a time. but when you run it for only one VM i think it sets up everything anyway.
 
 questions:
 - [x] do we actually need both computers?
