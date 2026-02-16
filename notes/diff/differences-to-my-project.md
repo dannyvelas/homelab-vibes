@@ -8,6 +8,7 @@ better differences:
 - using wireguard instead of tailscale
 - using a reverse proxy like Traefik
 - adding ddns in case my home-ip changes
+- having a "status" sub-command to see what apps are running for all hosts
 
 maybe better, maybe worse differences:
 - creating `group_vars` directory with variables for ansible instead of passing in variables via command line via json
@@ -37,8 +38,9 @@ worse differences:
 - [ ] it tries to run Terraform (which expects libvirt to exist on the machine) before running ansible (which is the thing that installs libvirt)
 - [ ] doesn't switch to a random port
 - [ ] doesn't email when an update happens
-- [ ] doesn't create SSH user for VM
+- [ ] doesn't create SSH user for VM. is this necessary? i thought yes to be able to run an ansible playbook on it
 - [ ] the CLI might be broken. it looks like it asks you to set up one VM at a time. but when you run it for only one VM i think it sets up everything anyway.
+- [ ] it does have a way for you to be able to see the configs that are being used. this is in a way better than my current cli behavior. my cli only shows whether a config is loaded or not. it doesn't show you the full value. however, my cli might be better in the sense that it only shows the exact minimum configs needed for a command. if configs are say, $10^9$ keys, and a command you're interested in running only uses 5, you'd much rather see output that tells you whether those 5 configs are set correctly, rather than output of $10^9$ keys. my CLI can be improved, but i think it's easier to improve than the AI approach is.
 
 questions:
 - [x] do we actually need both computers?
