@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	"github.com/homelab-vibe/iac/config"
 	"github.com/homelab-vibe/iac/generators"
@@ -58,7 +59,7 @@ func provisionHost(args []string) error {
 	generatedDir := filepath.Join(repoRoot, ".generated")
 
 	// Step 1: Generate all tool-specific configs
-	fmt.Println("  [1/3] Generating tool-specific configs from homelab.yml...")
+	fmt.Println("  [1/4] Generating tool-specific configs from homelab.yml...")
 
 	if err := generators.GenerateAnsibleInventory(cfg, filepath.Join(generatedDir, "ansible", "inventory")); err != nil {
 		return fmt.Errorf("generating Ansible inventory: %w", err)
@@ -70,8 +71,23 @@ func provisionHost(args []string) error {
 
 	fmt.Println("  Configs generated into .generated/")
 
-	// Step 2: Run Terraform apply for VM lifecycle (per-host)
-	fmt.Println("  [2/3] Running Terraform apply (VM lifecycle)...")
+	inventoryFile := filepath.Join(generatedDir, "ansible", "inventory", "hosts.yml")
+
+	// Step 2: Run Ansible host setup (hardening + hypervisor)
+	// Must run before Terraform since Terraform needs KVM/libvirt installed.
+	fmt.Println("  [2/4] Setting up host (hardening, hypervisor)...")
+	setupPlaybook := filepath.Join(repoRoot, "iac", "ansible", "playbooks", "setup-host.yml")
+
+	if err := runCommand(repoRoot, "ansible-playbook",
+		"-i", inventoryFile,
+		setupPlaybook,
+		"--limit", *name,
+	); err != nil {
+		return fmt.Errorf("ansible-playbook setup-host: %w", err)
+	}
+
+	// Step 3: Run Terraform apply for VM lifecycle (per-host)
+	fmt.Println("  [3/4] Running Terraform apply (NAT network + VM creation)...")
 	tfDir := filepath.Join(repoRoot, "iac", "terraform")
 	tfVarsFile := filepath.Join(generatedDir, "terraform", *name, "terraform.tfvars")
 	tfStateFile := filepath.Join(generatedDir, "terraform", *name, "terraform.tfstate")
@@ -84,17 +100,17 @@ func provisionHost(args []string) error {
 		return fmt.Errorf("terraform apply: %w", err)
 	}
 
-	// Step 3: Run Ansible provisioning playbook
-	fmt.Println("  [3/3] Running Ansible provisioning playbook...")
-	inventoryFile := filepath.Join(generatedDir, "ansible", "inventory", "hosts.yml")
-	playbookFile := filepath.Join(repoRoot, "iac", "ansible", "playbooks", "provision-host.yml")
+	// Step 4: Run Ansible VM guest configuration (Docker, etc.)
+	fmt.Println("  [4/4] Configuring VM guest (Docker, storage)...")
+	vmPlaybook := filepath.Join(repoRoot, "iac", "ansible", "playbooks", "configure-vm.yml")
+	vmName := fmt.Sprintf("%s-vm", *name)
 
 	if err := runCommand(repoRoot, "ansible-playbook",
 		"-i", inventoryFile,
-		playbookFile,
-		"--limit", *name,
+		vmPlaybook,
+		"--limit", vmName,
 	); err != nil {
-		return fmt.Errorf("ansible-playbook: %w", err)
+		return fmt.Errorf("ansible-playbook configure-vm: %w", err)
 	}
 
 	host := cfg.Hosts[*name]
@@ -117,24 +133,8 @@ func runCommand(dir string, name string, args ...string) error {
 
 // findRepoRoot walks up from CWD to find the repo root (directory containing homelab.yml or .git).
 func findRepoRoot() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "homelab.yml")); err == nil {
-			return dir, nil
-		}
-		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return "", fmt.Errorf("could not find repo root (no homelab.yml or .git found)")
-		}
-		dir = parent
-	}
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "..", "..", ".."), nil
 }
 
 // hostNames returns a slice of host names from the config.
