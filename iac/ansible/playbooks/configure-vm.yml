@@ -1,0 +1,18 @@
+---
+# VM guest configuration: Docker installation and OS setup inside the VM.
+# Runs AFTER Terraform has created the VM.
+#
+# Usage (invoked by `iac provision host`):
+#   ansible-playbook -i .generated/ansible/inventory/hosts.yml \
+#     iac/ansible/playbooks/configure-vm.yml \
+#     --limit <host_name>-vm
+
+- name: Configure workload VM
+  hosts: vms
+  become: true
+  gather_facts: true
+
+  roles:
+    # VM guest setup (OS hardening, Docker)
+    - role: vm-guest
+      tags: [vm-guest]

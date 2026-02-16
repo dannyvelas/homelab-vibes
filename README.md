@@ -247,10 +247,10 @@ iac/
     generators/              # Ansible/Terraform config generators
     wireguard/               # WireGuard key/peer management
   ansible/
-    playbooks/               # provision-host, deploy-app, deploy-proxy,
-                             # deploy-vpn, deploy-updater, security-audit
-    roles/                   # hardening, hypervisor, nat-network,
-                             # vm-create, vm-guest, wireguard,
+    playbooks/               # setup-host, configure-vm, deploy-app,
+                             # deploy-proxy, deploy-vpn, deploy-updater,
+                             # security-audit
+    roles/                   # hardening, hypervisor, vm-guest, wireguard,
                              # app-container, proxy-container, auto-updater
   terraform/                 # libvirt VM lifecycle
 tests/

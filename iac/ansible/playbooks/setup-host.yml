@@ -1,0 +1,22 @@
+---
+# Host-level setup: OS hardening and hypervisor installation.
+# Runs BEFORE Terraform (which needs KVM/libvirt to be installed).
+#
+# Usage (invoked by `iac provision host`):
+#   ansible-playbook -i .generated/ansible/inventory/hosts.yml \
+#     iac/ansible/playbooks/setup-host.yml \
+#     --limit <host_name>
+
+- name: Setup physical host
+  hosts: hosts
+  become: true
+  gather_facts: true
+
+  roles:
+    # 1. OS hardening (UFW, SSH, auto-updates, least privilege, iptables NAT security)
+    - role: hardening
+      tags: [hardening]
+
+    # 2. KVM/libvirt hypervisor installation
+    - role: hypervisor
+      tags: [hypervisor]
