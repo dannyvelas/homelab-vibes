@@ -9,6 +9,8 @@ better differences:
 - using a reverse proxy like Traefik
 - adding ddns in case my home-ip changes
 - having a "status" sub-command to see what apps are running for all hosts
+- having a "security-audit" sub-command and playbook 
+- having a "terraform teardown", although i think i was going to have this anyway
 
 maybe better, maybe worse differences:
 - creating `group_vars` directory with variables for ansible instead of passing in variables via command line via json
