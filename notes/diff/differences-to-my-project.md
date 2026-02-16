@@ -2,6 +2,9 @@ better differences:
 - has fail2ban
 - explicitly set ssh pub key to yet
 - made directory for playbooks
+- used raw iptable logic instead of just ufw
+- seems to have more firewall rules
+- split responsibility of creating VM and creating plex. in my project, creating a VM was the responsibility of the plex playbook. here, creating VMs is always the responsibility of the "configure host" playbook. the plex playbook just has to find the vm and install itself in it, like in k8s
 
 maybe better, maybe worse differences:
 - creating `group_vars` directory with variables for ansible instead of passing in variables via command line via json
@@ -14,6 +17,7 @@ maybe better, maybe worse differences:
 - the AI sets "max auth tries" to 3 for SSH
 - the AI sets "x11 forwarding" to no for ssh
 - the AI created a dedicated task to enable ufw, where in mine it seems implied
+- the AI uses handlers instead of restarting sshd as a task
 
 worse differences:
 - [ ] business requirement: being able to build iac easily. right now the instructions require you to cd into iac/cli, build, and then cd back out. this is annoying. 
@@ -29,16 +33,10 @@ worse differences:
 - [ ] the libvirt terraform file was completely wrong :(
 - [ ] it tries to run Terraform (which expects libvirt to exist on the machine) before running ansible (which is the thing that installs libvirt)
 - [ ] doesn't switch to a random port
+- [ ] doesn't email when an update happens
+- [ ] doesn't create SSH user for VM
 
-future:
-- [ ] add some TACO software (like terraform enterprise, scalr, spacelift, env0) so that terraform repo is always the absolute source of truth
-  - looks liks terraform enterprise is too heavy
-  - scalr, spacelift, env0 are SAAS
-  - so can't do this yet
-  - so, only options are to wait for more capacity or use atlantis
-- [x] add OVN. on adding it, should we remove the UFW stuff?
+questions:
 - [x] do we actually need both computers?
     - it looks like we’re actually deploying plex and sonar to one computer and radarr and bazarr to the other computer. let’s see how much capacity we have left 
     - according to claude, there is roughly 2.8-3.3 GB free per VM and ~2.7 GB free per host. That's enough for Atlantis or OVN individually, and probably both.
-- [ ] let’s stop making plex/radarr/sonarr/bazarr special. instead, let’s our system generic enough so that we can just deploy these as if they were any arbitrary dockerized service
-- [ ] we need to expose plex
