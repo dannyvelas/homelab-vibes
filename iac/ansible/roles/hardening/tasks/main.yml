@@ -98,6 +98,12 @@
     enabled: true
     state: started
 
+# --- Dynamic DNS ---
+
+- name: Include DDNS tasks
+  ansible.builtin.include_tasks: ddns.yml
+  when: ddns_enabled
+
 # --- VM network isolation (UFW route rules) ---
 # Terraform creates the libvirt NAT network (bridge, DHCP, masquerade).
 # These UFW rules add port forwarding and egress control.

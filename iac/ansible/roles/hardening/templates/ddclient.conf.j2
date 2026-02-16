@@ -1,0 +1,13 @@
+# ddclient configuration for dynamic DNS
+# Managed by Ansible - do not edit directly
+
+daemon=300
+syslog=yes
+pid=/var/run/ddclient.pid
+use=web, web=checkip.dyndns.com/, web-skip='IP Address'
+
+protocol={{ ddns_protocol }}
+server={{ ddns_server }}
+login={{ ddns_login }}
+password={{ ddns_password }}
+{{ ddns_hostname }}
