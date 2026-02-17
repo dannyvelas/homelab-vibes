@@ -1,6 +1,6 @@
 # homelab-vibe
 
-Infrastructure as Code for a homelab environment. A single Go CLI (`iac`) reads one config file (`homelab.yml`) and orchestrates Terraform and Ansible to provision servers, deploy a WireGuard VPN, configure OVN networking, and schedule containerized workloads via k3s. Engineers deploy any dockerized service by writing a simple manifest — no application-specific code in the platform itself.
+Infrastructure as Code for a homelab environment. A single Go CLI (`iac`) reads one config file (`homelab.yml`) and orchestrates Terraform and Ansible to provision one or more servers, deploy a WireGuard VPN, configure OVN networking, and schedule containerized workloads via k3s. Engineers deploy any dockerized service by writing a simple manifest — no application-specific code in the platform itself.
 
 ## Architecture
 
@@ -21,14 +21,16 @@ Home LAN (192.168.1.0/24)
   |           +-- Traefik (reverse proxy, subdomain routing)
   |           \-- workload containers (read-only root)
   |
-  \-- Host 02 (192.168.1.11)
-        +-- UFW (NAT, port forwarding, egress blocking)
-        +-- OVN (overlay networking between hosts)
-        +-- k3s server
-        \-- VM (192.168.123.50) <- private subnet, not on LAN
-              +-- k3s agent
-              +-- Traefik (reverse proxy, subdomain routing)
-              \-- workload containers (read-only root)
+  +-- Host 02 (192.168.1.11)
+  |     +-- UFW (NAT, port forwarding, egress blocking)
+  |     +-- OVN (overlay networking between hosts)
+  |     +-- k3s server
+  |     \-- VM (192.168.123.50) <- private subnet, not on LAN
+  |           +-- k3s agent
+  |           +-- Traefik (reverse proxy, subdomain routing)
+  |           \-- workload containers (read-only root)
+  |
+  +-- ...more hosts as needed...
 ```
 
 **Two-layer isolation**: Trusted infrastructure (WireGuard, KVM, OVN) runs on the host. Application workloads run inside VMs behind NAT. A container escape lands in the VM kernel, not the host.
@@ -116,6 +118,7 @@ hosts:
   homelab-host-02:
     ip: 192.168.1.11              # your server 2 LAN IP
     nat_subnet: 192.168.123.0/24
+  # add as many hosts as needed
 
 vpn:
   subnet: 10.0.0.0/24
@@ -175,11 +178,12 @@ iac deploy service --manifest services/golinks.yml
 
 ### Bootstrap infrastructure
 
-Provision servers — this hardens the OS, installs KVM/libvirt, creates workload VMs, configures OVN overlay networking, and joins k3s:
+Provision each server — this hardens the OS, installs KVM/libvirt, creates a workload VM, configures OVN overlay networking, and joins k3s:
 
 ```bash
 iac provision host --name homelab-host-01
 iac provision host --name homelab-host-02
+# repeat for each host in homelab.yml
 ```
 
 ### Deploy VPN
