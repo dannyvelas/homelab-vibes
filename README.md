@@ -2,8 +2,6 @@
 
 Infrastructure as Code for a homelab environment. A single Go CLI (`iac`) reads one config file (`homelab.yml`) and orchestrates Terraform and Ansible to provision servers, deploy a WireGuard VPN, configure OVN networking, and schedule containerized workloads via k3s. Engineers deploy any dockerized service by writing a simple manifest — no application-specific code in the platform itself.
 
-Managed by Spacelift for drift detection and a unified operations dashboard across all Terraform and Ansible projects.
-
 ## Architecture
 
 ```
@@ -15,7 +13,7 @@ Home LAN (192.168.1.0/24)
   |
   +-- Host 01 (192.168.1.10)
   |     +-- WireGuard (wg0, VPN endpoint)
-  |     +-- nftables (NAT, port forwarding, egress blocking)
+  |     +-- UFW (NAT, port forwarding, egress blocking)
   |     +-- OVN (overlay networking between hosts)
   |     +-- k3s server (workload scheduler)
   |     \-- VM (192.168.122.50) <- private subnet, not on LAN
@@ -24,7 +22,7 @@ Home LAN (192.168.1.0/24)
   |           \-- workload containers (read-only root)
   |
   \-- Host 02 (192.168.1.11)
-        +-- nftables (NAT, port forwarding, egress blocking)
+        +-- UFW (NAT, port forwarding, egress blocking)
         +-- OVN (overlay networking between hosts)
         +-- k3s server
         \-- VM (192.168.123.50) <- private subnet, not on LAN
@@ -37,7 +35,7 @@ Home LAN (192.168.1.0/24)
 
 ### Security layers
 
-1. **OS hardening** — nftables firewall, SSH key-only auth, unattended security updates
+1. **OS hardening** — UFW firewall, SSH key-only auth, unattended security updates
 2. **NAT networking** — VMs on private subnets, invisible to the home LAN
 3. **Egress blocking** — VMs cannot initiate connections to other LAN devices
 4. **VM kernel isolation** — Container breakouts are contained by the VM boundary
@@ -49,8 +47,6 @@ Home LAN (192.168.1.0/24)
 
 - **Grafana dashboard** — real-time metrics for all deployed services (resource usage, uptime, response times)
 - **Alerting** — automatic notifications when any service goes down or degrades (email, Slack, PagerDuty)
-- **Spacelift** — drift detection dashboard across all Terraform projects and Ansible playbooks, with audit trail and approval workflows
-
 ### Go links
 
 Internal short URLs for quick access to services and dashboards:
@@ -59,7 +55,6 @@ Internal short URLs for quick access to services and dashboards:
 |------|-------------|
 | `go/grafana` | Monitoring dashboard |
 | `go/alerts` | Alert configuration |
-| `go/spacelift` | Drift detection and IaC operations |
 | `go/vpn` | VPN client setup guide |
 
 ## Prerequisites
@@ -231,7 +226,7 @@ iac teardown                 # destroy all VMs via Terraform
 iac <command> [options]
 
 Commands:
-  provision host       Provision a physical host (hardening, hypervisor, VM, k3s, OVN)
+  provision host       Provision a physical host (hardening, hypervisor, VM, OVN, k3s)
   deploy vpn           Deploy WireGuard VPN on designated host
   deploy proxy         Deploy reverse proxy into workload VMs
   deploy service       Deploy a service from a manifest file
@@ -287,10 +282,9 @@ When you add or migrate servers:
 | VM lifecycle | Terraform + libvirt   | Declarative, reproducible                    |
 | Scheduling   | k3s                   | Lightweight Kubernetes, rolling updates, auto-restart |
 | Networking   | OVN                   | Overlay networking, encrypted east-west traffic |
-| Firewall     | nftables              | Direct kernel integration, no abstraction conflicts |
+| Firewall     | UFW                   | Simple, readable firewall rules              |
 | VPN          | WireGuard             | Kernel-level, no third-party trust           |
 | Proxy        | Traefik               | Auto-discovery, TLS, subdomain routing       |
 | Monitoring   | Grafana + Prometheus  | Dashboards, alerting, service health         |
-| IaC Ops      | Spacelift             | Drift detection, approval workflows, audit trail |
 | Go links     | golinks               | Internal short URLs for quick service access |
 | OS           | Debian 12             | Stable, security updates, KVM support        |
