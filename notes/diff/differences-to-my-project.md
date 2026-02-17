@@ -11,19 +11,29 @@ better differences:
 - having a "status" sub-command to see what apps are running for all hosts
 - having a "security-audit" sub-command and playbook 
 - having a "terraform teardown", although i think i was going to have this anyway
+- running terraform init always when terraform runs. it is an idempotent command that will work for the very first time and every time after even if it's unecessary
+- generates ansible inventory idempotently on every run instead of assuming one exists. also uses yml for inventory which is easier to parse and update programmatically than .ini files.
 
 maybe better, maybe worse differences:
-- creating `group_vars` directory with variables for ansible instead of passing in variables via command line via json
+- creating `group_vars` directory with variables for ansible instead of passing in variables via command line via json.
+  - Turns out my approach was better, but AI was right about one thing: instead of using a temp file, i could keep the generated config file inside of a git-ignored ".generated" directory for easier debugging.
 - creating `*.tfvars` files for terraform instead of passing in variables via command line
+  - same here, my approach was better, but AI was right about one thing: instead of using a temp file, i can keep the generated config file inside of a git-ignored ".generated" directory for easier debugging.
 - my project has a more granular CLI, where to set up something that under-the-hood necessitates both terraform and ansible logic, you would have to run one or more commands for terraform `iac terraform ...args` and one or more commands for ansible `iac ansible ...args`. if you wanted to have one command that sets up everything under-the-hood you would have to use a task runner like Taskfile or makefile as a layer of abstraction. this AI project wrote the code so that you don't have the same granular control which would allow you to only run only the terraform part of setting something up. it only allows you to set up the full thing `iac provision ....`.
   - this ai approach could be worse since you can't be as granular as my approach
   - but it could be better. an argument could be made that being granular doesn't matter, and that there are limitations that a task runner will face, that won't happen if you have everything abstracted behind one go program. e.g. one limitation is that you can't pass data (or it is harder / more awkward) to pass context data from one execution of terraform to an execution of ansible in my approach. this would have to be passed via CLI in my approach. but in the programming approach it's trivial to pass context data from the execution of terraform to an execution of ansible in this approach because both will be executed within the same go function.
+  - too early to tell, i will continue with my approach because i like the granularity and hopefully i don't run into a case where i need to pass context from one cli command to the other via taskfile. maybe if i find myself needing to pass context from one command to another it will be an indication to me that it is too granular and i can just merge those two commands. maybe this philosophy is enough to get the best of both worlds: granular CLI and no context passing
 - the AI uses libvirt/KVM terraform provider instead of incus
 - the AI sets "allow agent forwarding" to no for ssh
+  - this just makes it so you cant "ssh hop" from one machine to another
 - the AI sets "max auth tries" to 3 for SSH
+  - this helps prevent brute force attacks
 - the AI sets "x11 forwarding" to no for ssh
+  - this is only relevant if you are using the X window system on a server and want to prevent ssh forwarding from the GUI. but both of my servers don't have a window system installed on them. so this does nothing.
 - the AI created a dedicated task to enable ufw, where in mine it seems implied
+  - mine is fine, it actually does explicitly enable UFW in one task, but it had a misleading title, so i fixed the title
 - the AI uses handlers instead of restarting sshd as a task
+  - i told it my approach and it seems to like mine more so i'll keep it
 
 worse differences:
 - [ ] business requirement: being able to build iac easily. right now the instructions require you to cd into iac/cli, build, and then cd back out. this is annoying. 
