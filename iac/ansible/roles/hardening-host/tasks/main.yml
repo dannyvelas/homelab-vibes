@@ -1,0 +1,68 @@
+---
+# Host-specific hardening: DDNS, NAT port forwarding, VM egress blocking
+
+# --- Dynamic DNS ---
+
+- name: Include DDNS tasks
+  ansible.builtin.include_tasks: ddns.yml
+  when: ddns_enabled
+
+# --- VM network isolation (UFW route rules) ---
+# Terraform creates the libvirt NAT network (bridge, DHCP, masquerade).
+# These UFW rules add port forwarding and egress control.
+
+- name: Enable IPv4 forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_set: true
+    reload: true
+
+- name: Set UFW default forward policy to DROP
+  ansible.builtin.lineinfile:
+    path: /etc/default/ufw
+    regexp: '^DEFAULT_FORWARD_POLICY='
+    line: 'DEFAULT_FORWARD_POLICY="DROP"'
+  notify: Reload UFW
+
+- name: Add NAT port forwarding to UFW before.rules
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/before.rules
+    insertbefore: '^\*filter'
+    marker: "# {mark} ANSIBLE MANAGED - NAT port forwarding"
+    block: |
+      *nat
+      :PREROUTING ACCEPT [0:0]
+      {% for rule in nat_ingress_rules %}
+      -A PREROUTING -p {{ rule.proto }} --dport {{ rule.host_port }} -j DNAT --to-destination {{ nat_vm_ip }}:{{ rule.vm_port }}
+      {% endfor %}
+      COMMIT
+  notify: Reload UFW
+
+- name: Block VM traffic to home LAN
+  community.general.ufw:
+    rule: deny
+    route: true
+    from_ip: "{{ nat_subnet }}"
+    to_ip: "{{ home_lan_cidr }}"
+    comment: "Block VM -> LAN (lateral movement prevention)"
+
+- name: Allow forwarded ingress to VM
+  community.general.ufw:
+    rule: allow
+    route: true
+    to_ip: "{{ nat_vm_ip }}"
+    to_port: "{{ item.vm_port | string }}"
+    proto: "{{ item.proto }}"
+    comment: "Forward: {{ item.comment }}"
+  loop: "{{ nat_ingress_rules }}"
+
+- name: Allow VM egress to permitted destinations
+  community.general.ufw:
+    rule: allow
+    route: true
+    from_ip: "{{ nat_subnet }}"
+    to_port: "{{ item.port | string }}"
+    proto: "{{ item.proto }}"
+    comment: "VM egress: {{ item.comment }}"
+  loop: "{{ nat_egress_allowed }}"

@@ -1,0 +1,26 @@
+---
+# Host-specific hardening defaults
+
+# Dynamic DNS
+ddns_enabled: false
+ddns_protocol: dyndns2
+ddns_server: members.dyndns.org
+ddns_login: ""
+ddns_password: ""
+ddns_hostname: ""
+
+# NAT security for VM isolation
+nat_vm_ip: 192.168.122.50
+home_lan_cidr: 192.168.1.0/24
+
+# Ingress port forwarding (host port -> VM port)
+nat_ingress_rules:
+  - { host_port: 443, vm_port: 443, proto: tcp, comment: "HTTPS to reverse proxy" }
+
+# Egress allowed from VM subnet
+nat_egress_allowed:
+  - { port: 80, proto: tcp, comment: "HTTP (media downloads)" }
+  - { port: 443, proto: tcp, comment: "HTTPS (media downloads)" }
+  - { port: 53, proto: udp, comment: "DNS" }
+  - { port: 53, proto: tcp, comment: "DNS over TCP" }
+  - { port: 123, proto: udp, comment: "NTP" }

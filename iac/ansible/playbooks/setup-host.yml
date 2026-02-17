@@ -13,10 +13,6 @@
   gather_facts: true
 
   roles:
-    # 1. OS hardening (UFW, SSH, auto-updates, least privilege, iptables NAT security)
-    - role: hardening
-      tags: [hardening]
-
-    # 2. KVM/libvirt hypervisor installation
-    - role: hypervisor
-      tags: [hypervisor]
+    - hardening-common
+    - hardening-host
+    - hypervisor

@@ -1,5 +1,5 @@
 ---
-# VM guest configuration: Docker installation and OS setup inside the VM.
+# VM guest configuration: OS hardening, Docker installation, and storage setup.
 # Runs AFTER Terraform has created the VM.
 #
 # Usage (invoked by `iac provision host`):
@@ -13,6 +13,5 @@
   gather_facts: true
 
   roles:
-    # VM guest setup (OS hardening, Docker)
-    - role: vm-guest
-      tags: [vm-guest]
+    - hardening-common
+    - vm-guest

@@ -1,0 +1,9 @@
+---
+- name: Reload UFW
+  community.general.ufw:
+    state: reloaded
+
+- name: Restart ddclient
+  ansible.builtin.systemd:
+    name: ddclient
+    state: restarted

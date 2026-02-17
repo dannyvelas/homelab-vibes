@@ -1,0 +1,23 @@
+---
+# Common hardening defaults (hosts and VMs)
+
+# SSH configuration
+hardening_ssh_port: 22
+hardening_ssh_permit_root: "no"
+hardening_ssh_password_auth: "no"
+
+# UFW defaults
+hardening_ufw_default_incoming: deny
+hardening_ufw_default_outgoing: allow
+
+# UFW allowed ports
+hardening_ufw_rules:
+  - { port: "{{ hardening_ssh_port }}", proto: tcp, rule: allow, comment: "SSH" }
+
+# Automatic security updates
+hardening_auto_updates: true
+
+# Least-privilege user
+hardening_admin_user: admin
+hardening_admin_groups:
+  - sudo

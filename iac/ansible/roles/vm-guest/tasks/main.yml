@@ -1,32 +1,7 @@
 ---
-# VM guest setup: OS hardening, Docker engine.
+# VM guest setup: Docker engine and storage.
 # This role runs INSIDE the VM (not on the host).
-
-- name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: true
-    cache_valid_time: 3600
-
-# --- VM OS hardening (subset of host hardening) ---
-
-- name: Install security packages in VM
-  ansible.builtin.apt:
-    name:
-      - ufw
-      - unattended-upgrades
-    state: present
-
-- name: Configure VM UFW - allow SSH
-  community.general.ufw:
-    rule: allow
-    port: "22"
-    proto: tcp
-
-- name: Enable VM UFW
-  community.general.ufw:
-    state: enabled
-    default: deny
-    direction: incoming
+# OS hardening is handled by the hardening-common role.
 
 # --- Docker installation ---
 
