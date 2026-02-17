@@ -1,8 +1,8 @@
 # homelab-vibe
 
-Infrastructure as Code for a homelab media environment. A single Go CLI (`iac`) reads one config file (`homelab.yml`) and orchestrates Terraform and Ansible to provision servers, deploy a WireGuard VPN, and run Plex, Sonarr, Radarr, and Bazarr as isolated Docker containers inside KVM virtual machines.
+Infrastructure as Code for a homelab environment. A single Go CLI (`iac`) reads one config file (`homelab.yml`) and orchestrates Terraform and Ansible to provision servers, deploy a WireGuard VPN, configure OVN networking, and schedule containerized workloads via k3s. Engineers deploy any dockerized service by writing a simple manifest — no application-specific code in the platform itself.
 
-Designed to run on two 8GB RAM Debian 12 laptops today and migrate to proper bare-metal servers tomorrow — change the IPs in one file and re-run.
+Managed by Spacelift for drift detection and a unified operations dashboard across all Terraform and Ansible projects.
 
 ## Architecture
 
@@ -11,41 +11,62 @@ Home LAN (192.168.1.0/24)
   |
   +-- Home Gateway/Router
   |     \-- UDP 51820 forwarded -> Host 01
+  |         TCP 443 forwarded -> Host 01
   |
   +-- Host 01 (192.168.1.10)
   |     +-- WireGuard (wg0, VPN endpoint)
-  |     +-- iptables (NAT, port forwarding, egress blocking)
+  |     +-- nftables (NAT, port forwarding, egress blocking)
+  |     +-- OVN (overlay networking between hosts)
+  |     +-- k3s server (workload scheduler)
   |     \-- VM (192.168.122.50) <- private subnet, not on LAN
-  |           +-- Docker
-  |           +-- Traefik (reverse proxy)
-  |           +-- Plex container (read-only root)
-  |           \-- Sonarr container (read-only root)
+  |           +-- k3s agent
+  |           +-- Traefik (reverse proxy, subdomain routing)
+  |           \-- workload containers (read-only root)
   |
   \-- Host 02 (192.168.1.11)
-        +-- iptables (NAT, port forwarding, egress blocking)
+        +-- nftables (NAT, port forwarding, egress blocking)
+        +-- OVN (overlay networking between hosts)
+        +-- k3s server
         \-- VM (192.168.123.50) <- private subnet, not on LAN
-              +-- Docker
-              +-- Traefik (reverse proxy)
-              +-- Radarr container (read-only root)
-              \-- Bazarr container (read-only root)
+              +-- k3s agent
+              +-- Traefik (reverse proxy, subdomain routing)
+              \-- workload containers (read-only root)
 ```
 
-**Two-layer isolation**: Trusted infrastructure (WireGuard, KVM) runs on the host. Applications run inside VMs behind NAT. A container escape lands in the VM kernel, not the host.
+**Two-layer isolation**: Trusted infrastructure (WireGuard, KVM, OVN) runs on the host. Application workloads run inside VMs behind NAT. A container escape lands in the VM kernel, not the host.
 
 ### Security layers
 
-1. **OS hardening** — UFW firewall, SSH key-only auth, unattended security updates
+1. **OS hardening** — nftables firewall, SSH key-only auth, unattended security updates
 2. **NAT networking** — VMs on private subnets, invisible to the home LAN
 3. **Egress blocking** — VMs cannot initiate connections to other LAN devices
 4. **VM kernel isolation** — Container breakouts are contained by the VM boundary
-5. **Reverse proxy** — Single ingress point with TLS, security headers, rate limiting
-6. **Read-only containers** — Immutable root filesystem, writable only for data volumes
+5. **OVN overlay** — Encrypted east-west traffic between hosts, isolated from the physical network
+6. **Reverse proxy** — Single ingress point with TLS, security headers, rate limiting
+7. **Read-only containers** — Immutable root filesystem, writable only for data volumes
+
+### Monitoring and alerting
+
+- **Grafana dashboard** — real-time metrics for all deployed services (resource usage, uptime, response times)
+- **Alerting** — automatic notifications when any service goes down or degrades (email, Slack, PagerDuty)
+- **Spacelift** — drift detection dashboard across all Terraform projects and Ansible playbooks, with audit trail and approval workflows
+
+### Go links
+
+Internal short URLs for quick access to services and dashboards:
+
+| Link | Destination |
+|------|-------------|
+| `go/grafana` | Monitoring dashboard |
+| `go/alerts` | Alert configuration |
+| `go/spacelift` | Drift detection and IaC operations |
+| `go/vpn` | VPN client setup guide |
 
 ## Prerequisites
 
 ### Hardware
 
-- Two Debian 12 servers (laptops or bare-metal), each with:
+- One or more Debian 12 servers (laptops or bare-metal), each with:
   - 8 GB+ RAM
   - Dual-core CPU with Intel VT-x
   - 128 GB+ storage
@@ -57,11 +78,11 @@ Home LAN (192.168.1.0/24)
 - [Terraform](https://www.terraform.io/) (latest stable)
 - [Ansible](https://docs.ansible.com/) (latest stable)
 - [WireGuard client](https://www.wireguard.com/install/) (for VPN access)
-- SSH client with key-based auth configured to both servers
+- SSH client with key-based auth configured to all servers
 
 ### Network preparation
 
-Forward UDP port **51820** on your home gateway/router to the server that will act as the WireGuard endpoint. If your home IP is dynamic, set up a dynamic DNS hostname (e.g., DuckDNS, No-IP).
+Forward UDP port **51820** and TCP port **443** on your home gateway/router to the server that will act as the WireGuard endpoint and ingress point. If your home IP is dynamic, set up a dynamic DNS hostname (e.g., DuckDNS, No-IP).
 
 ### Server preparation
 
@@ -86,7 +107,7 @@ Copy the example config and fill in your values:
 cp homelab.yml.example homelab.yml
 ```
 
-Edit `homelab.yml` — this is the **only file you need to touch**:
+Edit `homelab.yml` — this is the **only file you need to touch** for infrastructure:
 
 ```yaml
 cluster:
@@ -113,24 +134,6 @@ storage:
   downloads_path: /mnt/downloads
   config_path: /mnt/config
 
-apps:
-  plex:
-    enabled: true
-    image: linuxserver/plex:latest
-    port: 32400
-  sonarr:
-    enabled: true
-    image: linuxserver/sonarr:latest
-    port: 8989
-  radarr:
-    enabled: true
-    image: linuxserver/radarr:latest
-    port: 7878
-  bazarr:
-    enabled: true
-    image: linuxserver/bazarr:latest
-    port: 6767
-
 secrets:
   ssh_key_path: ~/.ssh/id_ed25519
   ssh_user: admin
@@ -138,11 +141,46 @@ secrets:
 
 The `iac` CLI reads this file and generates all tool-specific configs (Ansible inventory, Terraform tfvars) into `.generated/`. You never edit those files directly.
 
+## Deploying services
+
+This platform is application-agnostic. To deploy any dockerized service, create a manifest in `services/`:
+
+```yaml
+# services/plex.yml
+name: plex
+image: linuxserver/plex:latest
+port: 32400
+host: homelab-host-01
+subdomain: plex                    # accessible at plex.home.example.com
+volumes:
+  - /mnt/media:/media:ro
+  - /mnt/config/plex:/config
+```
+
+Then deploy it:
+
+```bash
+iac deploy service --manifest services/plex.yml
+```
+
+The platform handles scheduling via k3s, reverse proxy routing via Traefik, read-only root filesystem, restart policies, and volume mounts. Any service that runs in a Docker container can be deployed this way.
+
+### Example services
+
+```bash
+iac deploy service --manifest services/plex.yml
+iac deploy service --manifest services/sonarr.yml
+iac deploy service --manifest services/radarr.yml
+iac deploy service --manifest services/bazarr.yml
+iac deploy service --manifest services/grafana.yml
+iac deploy service --manifest services/golinks.yml
+```
+
 ## Usage
 
 ### Bootstrap infrastructure
 
-Provision both servers — this hardens the OS, installs KVM/libvirt, creates workload VMs with Docker, and configures NAT networking:
+Provision servers — this hardens the OS, installs KVM/libvirt, creates workload VMs, configures OVN overlay networking, and joins k3s:
 
 ```bash
 iac provision host --name homelab-host-01
@@ -166,35 +204,20 @@ iac generate vpn-client --name "danny-phone"    # includes QR code
 
 Client configs are saved to `.generated/vpn-clients/`. Import them into the WireGuard app on each device, then delete the `.conf` files from your workstation — they contain the client's private key and preshared key. The `.generated/` directory is gitignored and the files are created with `0600` permissions, but they should be treated as sensitive and not kept around longer than needed.
 
-### Deploy applications
-
-Deploy the reverse proxy, then each media app:
+### Deploy reverse proxy
 
 ```bash
 iac deploy proxy
-iac deploy app --name plex
-iac deploy app --name sonarr
-iac deploy app --name radarr
-iac deploy app --name bazarr
 ```
 
-Each command runs an Ansible playbook that deploys the container into the VM with a read-only root filesystem, restart policy, and proper volume mounts. Traefik routes traffic to the containers automatically.
+Traefik routes all traffic through port 443, routing to services by subdomain.
 
 ### Verify
 
 ```bash
-iac status                  # cluster overview: hosts, containers, VPN
+iac status                  # cluster overview: hosts, services, VPN, k3s
 iac audit security          # run security checks across all infrastructure
 ```
-
-After deployment, access apps from the home LAN (or over VPN):
-
-| App    | URL                             |
-|--------|---------------------------------|
-| Plex   | `http://<host-ip>:32400`        |
-| Sonarr | `http://<host-ip>:8989`         |
-| Radarr | `http://<host-ip>:7878`         |
-| Bazarr | `http://<host-ip>:6767`         |
 
 ### Tear down
 
@@ -208,24 +231,25 @@ iac teardown                 # destroy all VMs via Terraform
 iac <command> [options]
 
 Commands:
-  provision host       Provision a physical host (hardening, hypervisor, VM)
+  provision host       Provision a physical host (hardening, hypervisor, VM, k3s, OVN)
   deploy vpn           Deploy WireGuard VPN on designated host
   deploy proxy         Deploy reverse proxy into workload VMs
-  deploy app           Deploy a media application (plex, sonarr, radarr, bazarr)
+  deploy service       Deploy a service from a manifest file
   generate configs     Generate all tool-specific configs from homelab.yml
   generate vpn-client  Generate a WireGuard client config
-  status               Show cluster status (hosts, containers, VPN)
+  status               Show cluster status (hosts, services, VPN, k3s)
   audit security       Run security audit across all infrastructure
   teardown             Tear down all VMs
   version              Print version
 ```
 
-All commands read configuration from `homelab.yml` at the repository root.
+All commands read infrastructure configuration from `homelab.yml` at the repository root. Service configuration lives in individual manifest files under `services/`.
 
 ## Project structure
 
 ```
 homelab.yml.example          # example config — copy to homelab.yml
+services/                    # service manifests (one per app)
 iac/
   cli/                       # Go CLI source
     main.go                  # entrypoint and command routing
@@ -234,10 +258,10 @@ iac/
     generators/              # Ansible/Terraform config generators
     wireguard/               # WireGuard key/peer management
   ansible/
-    playbooks/               # setup-host, configure-vm, deploy-app,
+    playbooks/               # setup-host, configure-vm, deploy-service,
                              # deploy-proxy, deploy-vpn, security-audit
     roles/                   # hardening, hypervisor, vm-guest, wireguard,
-                             # app-container, proxy-container
+                             # service-container, proxy-container, k3s, ovn
   terraform/                 # libvirt VM lifecycle
 tests/
   integration/               # e2e deployment test script
@@ -246,21 +270,27 @@ tests/
 
 ## Scaling to new hardware
 
-When you migrate to beefier servers:
+When you add or migrate servers:
 
 1. Update `homelab.yml` with the new host IPs and storage paths
 2. Run `iac provision host` for each new host
-3. Deploy apps to the new hosts
-4. No changes to application configs needed
+3. k3s automatically joins the new node to the cluster
+4. OVN extends the overlay network to the new host
+5. Deploy services to the new hosts — no changes to service manifests needed
 
 ## Tech stack
 
-| Component   | Tool                  | Why                                          |
-|-------------|-----------------------|----------------------------------------------|
-| CLI         | Go                    | Single binary, no runtime dependencies       |
-| Provisioning| Ansible               | Agentless, SSH-based, idempotent             |
-| VM lifecycle| Terraform + libvirt   | Declarative, reproducible                    |
-| Containers  | Docker                | Industry standard, LinuxServer.io images     |
-| VPN         | WireGuard             | Kernel-level, no third-party trust           |
-| Proxy       | Traefik               | Auto-discovery, TLS, security headers        |
-| OS          | Debian 12             | Stable, security updates, KVM support        |
+| Component    | Tool                  | Why                                          |
+|--------------|-----------------------|----------------------------------------------|
+| CLI          | Go                    | Single binary, no runtime dependencies       |
+| Provisioning | Ansible               | Agentless, SSH-based, idempotent             |
+| VM lifecycle | Terraform + libvirt   | Declarative, reproducible                    |
+| Scheduling   | k3s                   | Lightweight Kubernetes, rolling updates, auto-restart |
+| Networking   | OVN                   | Overlay networking, encrypted east-west traffic |
+| Firewall     | nftables              | Direct kernel integration, no abstraction conflicts |
+| VPN          | WireGuard             | Kernel-level, no third-party trust           |
+| Proxy        | Traefik               | Auto-discovery, TLS, subdomain routing       |
+| Monitoring   | Grafana + Prometheus  | Dashboards, alerting, service health         |
+| IaC Ops      | Spacelift             | Drift detection, approval workflows, audit trail |
+| Go links     | golinks               | Internal short URLs for quick service access |
+| OS           | Debian 12             | Stable, security updates, KVM support        |
