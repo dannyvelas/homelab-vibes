@@ -59,6 +59,7 @@ func generateHostsYML(cfg *config.Config, outputDir string) error {
 		vmName := fmt.Sprintf("%s-vm", hostName)
 		sb.WriteString(fmt.Sprintf("        %s:\n", vmName))
 		sb.WriteString(fmt.Sprintf("          ansible_host: %s\n", vmIP))
+		sb.WriteString(fmt.Sprintf("          ansible_ssh_common_args: '-o ProxyJump=%s@%s'\n", cfg.Secrets.SSHUser, hostCfg.IP))
 		sb.WriteString(fmt.Sprintf("          parent_host: %s\n", hostName))
 	}
 
