@@ -1,6 +1,6 @@
 # homelab-vibe
 
-Infrastructure as Code for a homelab environment. A single Go CLI (`iac`) reads one config file (`homelab.yml`) and orchestrates Terraform and Ansible to provision one or more servers, deploy a WireGuard VPN, configure OVN networking, and schedule containerized workloads via k3s. Engineers deploy any dockerized service by writing a simple manifest — no application-specific code in the platform itself.
+Infrastructure as Code for a homelab environment. A single Go CLI (`iac`) reads one config file (`homelab.yml`) and orchestrates Terraform and Ansible to provision one or more servers with a WireGuard VPN, OVN networking, and a k3s cluster. Engineers then deploy any dockerized service with `kubectl` — no application-specific code in the platform itself.
 
 ## Architecture
 
@@ -139,26 +139,11 @@ secrets:
 
 The `iac` CLI reads this file and generates all tool-specific configs (Ansible inventory, Terraform tfvars) into `.generated/`. You never edit those files directly.
 
-## Deploying services
-
-This platform is application-agnostic. After infrastructure is set up, deploy any service using standard Kubernetes manifests and kubectl. See `services/` for full working examples.
-
-k3s handles scheduling and restarts. Traefik picks up new services automatically via Ingress resources and routes by subdomain.
-
-```bash
-kubectl apply -f services/plex.yml
-kubectl apply -f services/sonarr.yml
-kubectl apply -f services/radarr.yml
-kubectl apply -f services/bazarr.yml
-kubectl apply -f services/grafana.yml
-kubectl apply -f services/golinks.yml
-```
-
 ## Usage
 
 ### Bootstrap infrastructure
 
-Provision each server — this hardens the OS, installs KVM/libvirt, creates a workload VM, configures OVN overlay networking, and joins k3s:
+Provision each server — this hardens the OS, installs WireGuard (on the designated VPN host), installs KVM/libvirt, creates a workload VM with Traefik, configures OVN overlay networking, and joins k3s:
 
 ```bash
 iac provision host --name homelab-host-01
@@ -166,15 +151,7 @@ iac provision host --name homelab-host-02
 # repeat for each host in homelab.yml
 ```
 
-### Deploy VPN
-
-Install WireGuard on the designated host for secure remote access:
-
-```bash
-iac deploy vpn
-```
-
-Generate client configs for your team:
+### Generate VPN client configs
 
 ```bash
 iac generate vpn-client --name "danny-laptop"
@@ -182,14 +159,6 @@ iac generate vpn-client --name "danny-phone"
 ```
 
 Client configs are saved to `.generated/vpn-clients/`. Import them into the WireGuard app on each device, then delete the `.conf` files from your workstation — they contain the client's private key and preshared key. The `.generated/` directory is gitignored and the files are created with `0600` permissions, but they should be treated as sensitive and not kept around longer than needed.
-
-### Deploy reverse proxy
-
-```bash
-iac deploy proxy
-```
-
-Traefik routes all traffic through port 443, routing to services by subdomain.
 
 ### Set up local DNS
 
@@ -200,6 +169,21 @@ kubectl apply -f services/coredns.yml
 ```
 
 Then update your router's DHCP settings to use the cluster as the DNS server. This is a one-time manual change — after this, every device on the LAN resolves service subdomains automatically.
+
+### Deploy services
+
+This platform is application-agnostic. Deploy any service using standard Kubernetes manifests and kubectl. See `services/` for full working examples.
+
+```bash
+kubectl apply -f services/plex.yml
+kubectl apply -f services/sonarr.yml
+kubectl apply -f services/radarr.yml
+kubectl apply -f services/bazarr.yml
+kubectl apply -f services/grafana.yml
+kubectl apply -f services/golinks.yml
+```
+
+k3s handles scheduling and restarts. Traefik picks up new services automatically via Ingress resources and routes by subdomain.
 
 ### Verify
 
@@ -220,9 +204,7 @@ iac teardown # destroy all VMs via Terraform
 iac <command> [options]
 
 Commands:
-  provision host       Provision a physical host (hardening, hypervisor, VM, OVN, k3s)
-  deploy vpn           Deploy WireGuard VPN on designated host
-  deploy proxy         Deploy reverse proxy into workload VMs
+  provision host       Provision a physical host (hardening, VPN, hypervisor, VM, proxy, OVN, k3s)
   generate configs     Generate all tool-specific configs from homelab.yml
   generate vpn-client  Generate a WireGuard client config
   status               Show cluster status (hosts, services, VPN, k3s)
@@ -246,10 +228,9 @@ iac/
     generators/              # Ansible/Terraform config generators
     wireguard/               # WireGuard key/peer management
   ansible/
-    playbooks/               # setup-host, configure-vm, deploy-proxy,
-                             # deploy-vpn, security-audit
+    playbooks/               # setup-host, configure-vm, security-audit
     roles/                   # hardening-common, hardening-host, hypervisor,
-                             # vm-guest, wireguard, proxy-container, k3s, ovn
+                             # vm-guest, wireguard, proxy, k3s, ovn
   terraform/                 # libvirt VM lifecycle
 tests/
   integration/               # e2e deployment test script
