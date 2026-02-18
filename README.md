@@ -141,37 +141,17 @@ The `iac` CLI reads this file and generates all tool-specific configs (Ansible i
 
 ## Deploying services
 
-This platform is application-agnostic. To deploy any dockerized service, create a manifest in `services/`:
+This platform is application-agnostic. After infrastructure is set up, deploy any service using standard Kubernetes manifests and kubectl. See `services/` for full working examples.
 
-```yaml
-# services/plex.yml
-name: plex
-image: linuxserver/plex:latest
-port: 32400
-host: homelab-host-01
-subdomain: plex                    # accessible at plex.home.example.com
-volumes:
-  - /mnt/media:/media:ro
-  - /mnt/config/plex:/config
-```
-
-Then deploy it:
+k3s handles scheduling and restarts. Traefik picks up new services automatically via Ingress resources and routes by subdomain.
 
 ```bash
-iac deploy service --manifest services/plex.yml
-```
-
-The platform handles scheduling via k3s, reverse proxy routing via Traefik, read-only root filesystem, restart policies, and volume mounts. Any service that runs in a Docker container can be deployed this way.
-
-### Example services
-
-```bash
-iac deploy service --manifest services/plex.yml
-iac deploy service --manifest services/sonarr.yml
-iac deploy service --manifest services/radarr.yml
-iac deploy service --manifest services/bazarr.yml
-iac deploy service --manifest services/grafana.yml
-iac deploy service --manifest services/golinks.yml
+kubectl apply -f services/plex.yml
+kubectl apply -f services/sonarr.yml
+kubectl apply -f services/radarr.yml
+kubectl apply -f services/bazarr.yml
+kubectl apply -f services/grafana.yml
+kubectl apply -f services/golinks.yml
 ```
 
 ## Usage
@@ -198,7 +178,7 @@ Generate client configs for your team:
 
 ```bash
 iac generate vpn-client --name "danny-laptop"
-iac generate vpn-client --name "danny-phone"    # includes QR code
+iac generate vpn-client --name "danny-phone"
 ```
 
 Client configs are saved to `.generated/vpn-clients/`. Import them into the WireGuard app on each device, then delete the `.conf` files from your workstation — they contain the client's private key and preshared key. The `.generated/` directory is gitignored and the files are created with `0600` permissions, but they should be treated as sensitive and not kept around longer than needed.
@@ -214,14 +194,14 @@ Traefik routes all traffic through port 443, routing to services by subdomain.
 ### Verify
 
 ```bash
-iac status                  # cluster overview: hosts, services, VPN, k3s
-iac audit security          # run security checks across all infrastructure
+iac status         # cluster overview: hosts, services, VPN, k3s
+iac audit security # run security checks across all infrastructure
 ```
 
 ### Tear down
 
 ```bash
-iac teardown                 # destroy all VMs via Terraform
+iac teardown # destroy all VMs via Terraform
 ```
 
 ## CLI reference
@@ -233,7 +213,6 @@ Commands:
   provision host       Provision a physical host (hardening, hypervisor, VM, OVN, k3s)
   deploy vpn           Deploy WireGuard VPN on designated host
   deploy proxy         Deploy reverse proxy into workload VMs
-  deploy service       Deploy a service from a manifest file
   generate configs     Generate all tool-specific configs from homelab.yml
   generate vpn-client  Generate a WireGuard client config
   status               Show cluster status (hosts, services, VPN, k3s)
@@ -242,7 +221,7 @@ Commands:
   version              Print version
 ```
 
-All commands read infrastructure configuration from `homelab.yml` at the repository root. Service configuration lives in individual manifest files under `services/`.
+All commands read infrastructure configuration from `homelab.yml` at the repository root. Services are deployed with `kubectl` using standard Kubernetes manifests.
 
 ## Project structure
 
@@ -257,10 +236,10 @@ iac/
     generators/              # Ansible/Terraform config generators
     wireguard/               # WireGuard key/peer management
   ansible/
-    playbooks/               # setup-host, configure-vm, deploy-service,
-                             # deploy-proxy, deploy-vpn, security-audit
-    roles/                   # hardening, hypervisor, vm-guest, wireguard,
-                             # service-container, proxy-container, k3s, ovn
+    playbooks/               # setup-host, configure-vm, deploy-proxy,
+                             # deploy-vpn, security-audit
+    roles/                   # hardening-common, hardening-host, hypervisor,
+                             # vm-guest, wireguard, proxy-container, k3s, ovn
   terraform/                 # libvirt VM lifecycle
 tests/
   integration/               # e2e deployment test script
@@ -275,7 +254,7 @@ When you add or migrate servers:
 2. Run `iac provision host` for each new host
 3. k3s automatically joins the new node to the cluster
 4. OVN extends the overlay network to the new host
-5. Deploy services to the new hosts — no changes to service manifests needed
+5. Deploy services with `kubectl` — no changes to manifests needed, k3s schedules across the cluster
 
 ## Tech stack
 
