@@ -79,7 +79,7 @@ Internal short URLs for quick access to services and dashboards:
 
 ### Network preparation
 
-Forward UDP port **51820** and TCP port **443** on your home gateway/router to the server that will act as the WireGuard endpoint and ingress point. If your home IP is dynamic, set up a dynamic DNS hostname (e.g., DuckDNS, No-IP).
+Forward UDP port **51820** and TCP port **443** on your home gateway/router to the server that will act as the WireGuard endpoint and ingress point.
 
 ### Server preparation
 
@@ -191,6 +191,16 @@ iac deploy proxy
 
 Traefik routes all traffic through port 443, routing to services by subdomain.
 
+### Set up local DNS
+
+Deploy CoreDNS on the cluster so that `*.home.example.com` resolves to the ingress host's LAN IP. This is what allows devices on your LAN to reach services like `plex.home.example.com`.
+
+```bash
+kubectl apply -f services/coredns.yml
+```
+
+Then update your router's DHCP settings to use the cluster as the DNS server. This is a one-time manual change — after this, every device on the LAN resolves service subdomains automatically.
+
 ### Verify
 
 ```bash
@@ -255,6 +265,12 @@ When you add or migrate servers:
 3. k3s automatically joins the new node to the cluster
 4. OVN extends the overlay network to the new host
 5. Deploy services with `kubectl` — no changes to manifests needed, k3s schedules across the cluster
+
+## Next steps
+
+### Remote access via DDNS
+
+To access services from outside your home LAN (without VPN), set up a dynamic DNS hostname (e.g., DuckDNS, No-IP) that points `home.example.com` at your public IP. The DDNS Ansible role (`hardening-host`) can automate this with ddclient — enable it by setting `ddns_enabled: true` in your host vars. With DDNS configured, the same subdomains (`plex.home.example.com`, etc.) work from anywhere.
 
 ## Tech stack
 
